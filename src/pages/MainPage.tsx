@@ -11,6 +11,13 @@ interface RaceResult {
         name: string;
         nationality: string;
     };
+    Time?: {
+        time?: string;
+    };
+    // status can be e.g. 'Finished', 'Lapped', 'Accident', etc.
+    status?: string;
+    // laps is provided as a string in the API
+    laps?: string;
     points: string;
 }
 
@@ -120,6 +127,12 @@ const MainPage = () => {
         load()
     }, [])
 
+    const winnerLaps = (() => {
+        const winnerLapsStr = results.find(r => r.position === '1')?.laps
+        const n = winnerLapsStr ? parseInt(winnerLapsStr, 10) : NaN
+        return Number.isFinite(n) ? n : null
+    })()
+
     return (
         <div>
             <h2>{raceName}</h2>
@@ -142,6 +155,7 @@ const MainPage = () => {
                                 <th>Driver</th>
                                 <th>Constructor</th>
                                 <th>Points</th>
+                                <th>Interval</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -151,6 +165,17 @@ const MainPage = () => {
                                     <td>{result.Driver.givenName} {result.Driver.familyName} ({result.Driver.nationality})</td>
                                     <td>{result.Constructor.name} ({result.Constructor.nationality})</td>
                                     <td>{result.points}</td>
+                                    <td>{
+                                        result.position === '1'
+                                            ? '—'
+                                            : result.status === 'Lapped' && winnerLaps !== null && result.laps
+                                            ? (() => {
+                                                const diff = winnerLaps - parseInt(result.laps || '0', 10)
+                                                if (!Number.isFinite(diff) || diff <= 0) return result.Time?.time ?? result.status ?? ''
+                                                return `+${diff} ${Math.abs(diff) === 1 ? 'lap' : 'laps'}`
+                                            })()
+                                            : (result.Time?.time ?? result.status ?? '')
+                                    }</td>
                                 </tr>
                             ))}
                         </tbody>
