@@ -8,8 +8,12 @@ const SeasonResults = () => {
     const [year, setYear] = useState<number>(randYear())
     const [driverStandings, setDriverStandings] = useState<any[]>([])
     const [constructorStandings, setConstructorStandings] = useState<any[]>([])
+    const [seasonRaces, setSeasonRaces] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [racesFetchedCount, setRacesFetchedCount] = useState(0)
+    const [racesTotal, setRacesTotal] = useState(0)
+    const [missingRounds, setMissingRounds] = useState<string[]>([])
 
     useEffect(() => {
         async function load() {
@@ -17,25 +21,180 @@ const SeasonResults = () => {
             setError('')
             setDriverStandings([])
             setConstructorStandings([])
-
-            const driversUrl = `https://api.jolpi.ca/ergast/f1/${year}/driverstandings.json`
-            const constructorsUrl = `https://api.jolpi.ca/ergast/f1/${year}/constructorstandings.json`
+            setSeasonRaces([])
+            setRacesFetchedCount(0)
+            setRacesTotal(0)
+            setMissingRounds([])
 
             try {
-                const [drvRes, conRes] = await Promise.all([fetch(driversUrl), fetch(constructorsUrl)])
-                if (!drvRes.ok || !conRes.ok) throw new Error('Network response was not ok')
+                // fetch standings
+                const [drvRes, conRes] = await Promise.all([
+                    fetch(`https://api.jolpi.ca/ergast/f1/${year}/driverstandings/`),
+                    fetch(`https://api.jolpi.ca/ergast/f1/${year}/constructorstandings/`),
+                ])
+                if (!drvRes.ok || !conRes.ok) throw new Error('Network response was not ok for standings')
 
                 const drvData = await drvRes.json()
                 const conData = await conRes.json()
 
                 const drvList = drvData?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings ?? []
                 const conList = conData?.MRData?.StandingsTable?.StandingsLists?.[0]?.ConstructorStandings ?? []
-
                 setDriverStandings(drvList)
                 setConstructorStandings(conList)
+
+                // fetch races list (metadata: round, circuit, country)
+                const racesUrl = `https://api.jolpi.ca/ergast/f1/${year}/races/`
+                const racesRes = await fetch(racesUrl)
+                if (!racesRes.ok) throw new Error('Failed to fetch season races')
+                const racesData = await racesRes.json()
+                const racesList = racesData?.MRData?.RaceTable?.Races ?? []
+                const sortedByRound = racesList.slice().sort((a: any, b: any) => {
+                    const ra = parseInt(a.round ?? '0', 10)
+                    const rb = parseInt(b.round ?? '0', 10)
+                    return ra - rb
+                })
+                setRacesTotal(sortedByRound.length)
+
+                // try cache first
+                const cacheKey = `seasonResults_${year}`
+                const cached = sessionStorage.getItem(cacheKey)
+                if (cached) {
+                    try {
+                        const parsed = JSON.parse(cached)
+                        setSeasonRaces(parsed)
+                        const fetchedCount = parsed.filter((r: any) => Array.isArray(r.Results) && r.Results.length > 0).length
+                        setRacesFetchedCount(fetchedCount)
+                        setMissingRounds(parsed.filter((r: any) => !Array.isArray(r.Results) || r.Results.length === 0).map((r: any) => r.round ?? r.raceName ?? String(r)))
+                        setLoading(false)
+                        return
+                    } catch {
+                        // fallthrough to fresh fetch
+                    }
+                }
+
+                // fetch all results for season via paginated /results/ (offset)
+                const pageLimit = 400
+                let offset = 0
+                let totalResults = Infinity
+                const raceResultsMap = new Map<string, any[]>()
+                let pagesFetched = 0
+
+                while (offset === 0 || offset < totalResults) {
+                    const url = `https://api.jolpi.ca/ergast/f1/${year}/results/?limit=${pageLimit}&offset=${offset}`
+                    const res = await fetch(url)
+                    if (!res.ok) throw new Error(`Failed to fetch results page at offset ${offset}`)
+                    const data = await res.json()
+                    pagesFetched++
+                    const mr = data?.MRData
+                    totalResults = parseInt(mr?.total ?? String(0), 10)
+                    const racesFromPage = mr?.RaceTable?.Races ?? []
+
+                    for (const r of racesFromPage) {
+                        const key = String(r.round ?? r.raceName ?? '')
+                        const existing = raceResultsMap.get(key) ?? []
+                        // merge Results arrays (some pages may split races if limit small)
+                        raceResultsMap.set(key, existing.concat(r.Results ?? []))
+                    }
+
+                    offset += pageLimit
+                }
+
+                // build seasonRaces from races metadata and merged results
+                const mergedRaces = sortedByRound.map((r: any) => {
+                    const key = String(r.round ?? r.raceName ?? '')
+                    const results = (raceResultsMap.get(key) ?? []).slice()
+                    return { ...r, Results: results }
+                })
+
+                // check for missing rounds
+                const missing: string[] = []
+                mergedRaces.forEach((r: any) => {
+                    const hasResults = Array.isArray(r?.Results) && r.Results.length > 0
+                    if (!hasResults) missing.push(r?.round ?? r?.raceName ?? String(r))
+                })
+
+                setSeasonRaces(mergedRaces)
+                setRacesFetchedCount(mergedRaces.filter((r: any) => Array.isArray(r?.Results) && r.Results.length > 0).length)
+                setMissingRounds(missing)
+
+                // if rounds are missing, start background retry loop to fetch missing rounds until complete
+                if (missing.length > 0) {
+                    (async () => {
+                        const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
+                        let current = mergedRaces.map((r: any) => ({ ...r, Results: (r.Results ?? []).slice() }))
+                        while (true) {
+                            for (let idx = 0; idx < current.length; idx++) {
+                                const r = current[idx]
+                                const has = Array.isArray(r.Results) && r.Results.length > 0
+                                if (has) continue
+                                const round = r.round
+
+                                // try simple per-round fetch with retries
+                                for (let attempt = 0; attempt < 4; attempt++) {
+                                    try {
+                                        const res = await fetch(`https://api.jolpi.ca/ergast/f1/${year}/${round}/results.json`)
+                                        if (res.ok) {
+                                            const data = await res.json()
+                                            const full = data?.MRData?.RaceTable?.Races?.[0]
+                                            if (full && Array.isArray(full.Results) && full.Results.length > 0) {
+                                                current[idx] = full
+                                                break
+                                            }
+                                        }
+                                    } catch {}
+                                    await sleep(500 * (attempt + 1))
+                                }
+
+                                if (Array.isArray(current[idx].Results) && current[idx].Results.length > 0) continue
+
+                                // paginated merge fallback
+                                try {
+                                    const pageLimit = 200
+                                    const first = await fetch(`https://api.jolpi.ca/ergast/f1/${year}/${round}/results.json?limit=${pageLimit}&offset=0`)
+                                    if (first.ok) {
+                                        const firstData = await first.json()
+                                        const firstRace = firstData?.MRData?.RaceTable?.Races?.[0]
+                                        let results = (firstRace?.Results) ? firstRace.Results.slice() : []
+                                        const total = parseInt(firstData?.MRData?.total ?? '0', 10)
+                                        const limit = parseInt(firstData?.MRData?.limit ?? String(pageLimit), 10)
+                                        if (total > results.length) {
+                                            for (let off = limit; off < total; off += limit) {
+                                                try {
+                                                    const p = await fetch(`https://api.jolpi.ca/ergast/f1/${year}/${round}/results.json?limit=${limit}&offset=${off}`)
+                                                    if (!p.ok) continue
+                                                    const pd = await p.json()
+                                                    const pr = pd?.MRData?.RaceTable?.Races?.[0]
+                                                    if (pr?.Results) results = results.concat(pr.Results)
+                                                } catch {}
+                                            }
+                                        }
+                                        if (results.length > 0) {
+                                            current[idx] = { ...(firstRace ?? r), Results: results }
+                                        }
+                                    }
+                                } catch {}
+                            }
+
+                            const newMissing = current.filter((race: any) => !(Array.isArray(race?.Results) && race.Results.length > 0)).map((race: any) => race?.round ?? race?.raceName ?? String(race))
+                            setSeasonRaces(current)
+                            setRacesFetchedCount(current.filter((race: any) => Array.isArray(race?.Results) && race.Results.length > 0).length)
+                            setMissingRounds(newMissing)
+
+                            if (newMissing.length === 0) {
+                                try { sessionStorage.setItem(cacheKey, JSON.stringify(current)) } catch {}
+                                break
+                            }
+
+                            // wait before next retry cycle
+                            await sleep(5000)
+                        }
+                    })()
+                } else {
+                    try { sessionStorage.setItem(cacheKey, JSON.stringify(mergedRaces)) } catch {}
+                }
             } catch (e) {
-                console.error('Failed to load season standings', e)
-                setError('Failed to fetch season standings.')
+                console.error('Failed to load season standings or results', e)
+                setError('Failed to fetch season standings/results.')
             } finally {
                 setLoading(false)
             }
@@ -44,10 +203,46 @@ const SeasonResults = () => {
         load()
     }, [year])
 
-    const onYearChange = (v: number) => {
-        const clamped = Math.max(MIN_YEAR, Math.min(CURRENT_YEAR, Math.floor(v)))
-        setYear(clamped)
-    }
+    // Build combined driver list (standings order first, then any drivers present in race results but not in standings)
+    const driverRows = (() => {
+        const standingsMap = Object.fromEntries(driverStandings.map((s: any) => [s.Driver.driverId, s]))
+        const driverIdsInStandings = driverStandings.map((s: any) => s.Driver.driverId)
+
+        const driversFromResults = new Map<string, any>()
+        seasonRaces.forEach(r => {
+            (r.Results ?? []).forEach((res: any) => {
+                const id = res.Driver?.driverId
+                if (id && !driversFromResults.has(id)) {
+                    driversFromResults.set(id, res.Driver)
+                }
+            })
+        })
+
+        // build final ordered ids: standings first, then others found in results
+        const orderedIds = [...driverIdsInStandings]
+        for (const id of driversFromResults.keys()) {
+            if (!orderedIds.includes(id)) orderedIds.push(id)
+        }
+
+        // for each driver id build row with per-race positions and final points
+        return orderedIds.map((id) => {
+            const standing = standingsMap[id]
+            const driverInfo = standing?.Driver ?? driversFromResults.get(id) ?? { driverId: id, givenName: id, familyName: '' }
+            const seasonPos = standing?.position ?? ''
+            const seasonPoints = standing?.points ?? '0'
+            const perRace = seasonRaces.map(r => {
+                const res = (r.Results ?? []).find((x: any) => x.Driver?.driverId === id)
+                return res ? (res.position ?? res.positionText ?? res.status ?? '-') : '-'
+            })
+            return {
+                driverId: id,
+                driverInfo,
+                seasonPos,
+                seasonPoints,
+                perRace,
+            }
+        })
+    })()
 
     return (
         <div>
@@ -69,46 +264,46 @@ const SeasonResults = () => {
                 <button onClick={() => setYear(randYear())}>Random year</button>
             </div>
 
-            {loading ? (
-                <p>Loading...</p>
+            {(loading || missingRounds.length > 0) ? (
+                <p>Results are loading, please wait{racesTotal ? ` — fetched ${racesFetchedCount}/${racesTotal} rounds` : ''}...</p>
             ) : error ? (
                 <p style={{ color: 'red' }}>{error}</p>
             ) : (
-                <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', justifyContent: 'center' }}>
-                    <div style={{ minWidth: '480px' }}>
-                        <h3>Driver standings ({year})</h3>
-                        <table>
+                <>
+                    <div style={{ overflowX: 'auto', display: 'block', maxWidth: '100vw' }}>
+                        <h3>Driver results by round ({year})</h3>
+                        <table style={{ width: 'max-content', whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr>
-                                    <th>Pos</th>
+                                    <th>Position</th>
                                     <th>Driver</th>
-                                    <th>Nationality</th>
-                                    <th>Constructor</th>
-                                    <th>Wins</th>
+                                    {seasonRaces.map(r => {
+                                        const country = r?.Circuit?.Location?.country ?? ''
+                                        const code = country ? country.trim().slice(0, 3).toUpperCase() : ''
+                                        return (
+                                            <th key={r.round}>{r.round}{code ? ` • ${code}` : ''}</th>
+                                        )
+                                    })}
                                     <th>Points</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {driverStandings.map((s, i) => {
-                                    const pos = s.position ?? s.positionText
-                                    const drv = s.Driver
-                                    const constr = s.Constructors?.[0]
-                                    return (
-                                        <tr key={drv?.driverId ?? `${pos}-${i}`}>
-                                            <td>{pos}</td>
-                                            <td>{drv?.givenName} {drv?.familyName}</td>
-                                            <td>{drv?.nationality}</td>
-                                            <td>{constr?.name}</td>
-                                            <td>{s.wins ?? '0'}</td>
-                                            <td>{s.points}</td>
-                                        </tr>
-                                    )
-                                })}
+                                {driverRows.map((row) => (
+                                    <tr key={row.driverId}>
+                                        <td style={{ whiteSpace: 'nowrap' }}>{row.seasonPos}</td>
+                                        <td style={{ textAlign: 'left' }}>{row.driverInfo.givenName} {row.driverInfo.familyName}</td>
+                                        {row.perRace.map((p: string, i: number) => (
+                                            <td key={i} style={{ whiteSpace: 'nowrap' }}>{p}</td>
+                                        ))}
+                                        <td style={{ whiteSpace: 'nowrap' }}>{row.seasonPoints}</td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
 
-                    <div style={{ minWidth: '320px' }}>
+                    {/* existing constructors table */}
+                    <div style={{ marginTop: '1rem' }}>
                         <h3>Constructor standings ({year})</h3>
                         <table>
                             <thead>
@@ -133,7 +328,7 @@ const SeasonResults = () => {
                             </tbody>
                         </table>
                     </div>
-                </div>
+                </>
             )}
         </div>
     )
