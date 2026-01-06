@@ -244,6 +244,43 @@ const SeasonResults = () => {
         })
     })()
 
+    const constructorRows = (() => {
+        const standingsMap = Object.fromEntries(constructorStandings.map((s: any) => [(s.Constructor?.constructorId ?? s.constructorId), s]))
+        const consIdsInStandings = constructorStandings.map((s: any) => (s.Constructor?.constructorId ?? s.constructorId))
+
+        const consFromResults = new Map<string, any>()
+        seasonRaces.forEach(r => {
+            (r.Results ?? []).forEach((res: any) => {
+                const id = res?.Constructor?.constructorId
+                if (id && !consFromResults.has(id)) consFromResults.set(id, res.Constructor)
+            })
+        })
+
+        const orderedIds = [...consIdsInStandings]
+        for (const id of consFromResults.keys()) {
+            if (!orderedIds.includes(id)) orderedIds.push(id)
+        }
+
+        return orderedIds.map((id) => {
+            const standing = standingsMap[id]
+            const constructorInfo = standing?.Constructor ?? consFromResults.get(id) ?? { constructorId: id, name: id }
+            const seasonPos = standing?.position ?? ''
+            const seasonPoints = standing?.points ?? '0'
+            const perRace = seasonRaces.map(r => {
+                const results = (r.Results ?? []).filter((x: any) => x?.Constructor?.constructorId === id)
+                const roundPoints = results.reduce((sum: number, res: any) => sum + (parseInt(res?.points ?? '0', 10) || 0), 0)
+                return roundPoints > 0 ? String(roundPoints) : '-'
+            })
+            return {
+                constructorId: id,
+                constructorInfo,
+                seasonPos,
+                seasonPoints,
+                perRace,
+            }
+        })
+    })()
+
     return (
         <div>
             <h2>Results from Season</h2>
@@ -302,29 +339,35 @@ const SeasonResults = () => {
                         </table>
                     </div>
 
-                    {/* existing constructors table */}
-                    <div style={{ marginTop: '1rem' }}>
-                        <h3>Constructor standings ({year})</h3>
-                        <table>
+                    {/* constructors results by round */}
+                    <div style={{ marginTop: '1rem', overflowX: 'auto', display: 'block', maxWidth: '100vw' }}>
+                        <h3>Constructor results by round ({year})</h3>
+                        <table style={{ width: 'max-content', whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr>
                                     <th>Pos</th>
                                     <th>Constructor</th>
+                                    {seasonRaces.map(r => {
+                                        const country = r?.Circuit?.Location?.country ?? ''
+                                        const code = country ? country.trim().slice(0, 3).toUpperCase() : ''
+                                        return (
+                                            <th key={r.round}>{r.round}{code ? ` • ${code}` : ''}</th>
+                                        )
+                                    })}
                                     <th>Points</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {constructorStandings.map((c, i) => {
-                                    const pos = c.position ?? c.positionText
-                                    const name = c.Constructor?.name ?? c.constructorId
-                                    return (
-                                        <tr key={c.constructorId ?? `${pos}-${i}`}>
-                                            <td>{pos}</td>
-                                            <td>{name}</td>
-                                            <td>{c.points}</td>
-                                        </tr>
-                                    )
-                                })}
+                                {constructorRows.map((row: any) => (
+                                    <tr key={row.constructorId}>
+                                        <td style={{ whiteSpace: 'nowrap' }}>{row.seasonPos}</td>
+                                        <td style={{ textAlign: 'left' }}>{row.constructorInfo.name ?? row.constructorInfo.constructorId}</td>
+                                        {row.perRace.map((p: string, i: number) => (
+                                            <td key={i} style={{ whiteSpace: 'nowrap' }}>{p}</td>
+                                        ))}
+                                        <td style={{ whiteSpace: 'nowrap' }}>{row.seasonPoints}</td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
