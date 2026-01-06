@@ -21,11 +21,19 @@ const MainPage = () => {
     const [error, setError] = useState('')
     const [lastRound, setLastRound] = useState<number | null>(null)
     const [totalRaces, setTotalRaces] = useState<number | null>(null)
+    const [lastDate, setLastDate] = useState<string | null>(null)
+    const [circuitName, setCircuitName] = useState<string | null>(null)
+    const [locality, setLocality] = useState<string | null>(null)
+    const [country, setCountry] = useState<string | null>(null)
 
     useEffect(() => {
         async function load() {
             setLoading(true)
             setError('')
+            setLastDate(null)
+            setCircuitName(null)
+            setLocality(null)
+            setCountry(null)
             try {
                 // Use "current" endpoints and explicit .json
                 const lastUrl = 'https://api.jolpi.ca/ergast/f1/current/last/results.json'
@@ -87,6 +95,14 @@ const MainPage = () => {
                 setRaceName(race?.raceName || 'Last F1 Race')
                 setResults(race?.Results || [])
 
+                const dateStr = race?.date
+                setLastDate(dateStr ?? null)
+
+                const circuit = race?.Circuit
+                setCircuitName(circuit?.circuitName ?? null)
+                setLocality(circuit?.Location?.locality ?? null)
+                setCountry(circuit?.Location?.country ?? null)
+
                 const roundStr = race?.round
                 const roundNum = roundStr ? parseInt(roundStr, 10) : NaN
                 setLastRound(Number.isFinite(roundNum) ? roundNum : null)
@@ -107,6 +123,9 @@ const MainPage = () => {
     return (
         <div>
             <h2>{raceName}</h2>
+            {lastDate && <p>Date: {lastDate}</p>}
+            {circuitName && <p>Track: {circuitName}</p>}
+            {(locality || country) && <p>Place: {locality ?? ''}{locality && country ? ', ' : ''}{country ?? ''}</p>}
             {loading ? (
                 <p>Loading...</p>
             ) : error ? (
@@ -114,7 +133,7 @@ const MainPage = () => {
             ) : (
                 <>
                     {lastRound !== null && totalRaces !== null && (
-                        <p style={{ fontWeight: 600 }}>Race {lastRound} / {totalRaces}</p>
+                        <p style={{ fontWeight: 600 }}>Round {lastRound} / {totalRaces}</p>
                     )}
                     <table>
                         <thead>
