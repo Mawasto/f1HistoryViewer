@@ -19,20 +19,89 @@ const MainPage = () => {
     const [raceName, setRaceName] = useState('')
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+    const [lastRound, setLastRound] = useState<number | null>(null)
+    const [totalRaces, setTotalRaces] = useState<number | null>(null)
 
     useEffect(() => {
-        fetch('https://api.jolpi.ca/ergast/f1/2025/last/results/')
-            .then(res => res.json())
-            .then(data => {
-                const race = data?.MRData?.RaceTable?.Races?.[0]
+        async function load() {
+            setLoading(true)
+            setError('')
+            try {
+                // Use "current" endpoints and explicit .json
+                const lastUrl = 'https://api.jolpi.ca/ergast/f1/current/last/results.json'
+                const seasonUrl = 'https://api.jolpi.ca/ergast/f1/current.json'
+
+                const [lastRes, seasonRes] = await Promise.all([
+                    fetch(lastUrl),
+                    fetch(seasonUrl),
+                ])
+
+                if (!lastRes.ok || !seasonRes.ok) {
+                    throw new Error('Network response was not ok')
+                }
+
+                const lastData = await lastRes.json()
+                const seasonData = await seasonRes.json()
+
+                // Try to get race from current season
+                let race = lastData?.MRData?.RaceTable?.Races?.[0]
+
+                // Get total races for current season (MRData.total or races length)
+                let totalStr = seasonData?.MRData?.total ?? String(seasonData?.MRData?.RaceTable?.Races?.length ?? '')
+                let totalNum = totalStr ? parseInt(totalStr, 10) : NaN
+
+                // If there are no races for the current season (empty Races[] or total === 0),
+                // fall back to previous season's last race and totals.
+                const currentSeasonStr = seasonData?.MRData?.RaceTable?.season
+                const currentSeasonNum = currentSeasonStr ? parseInt(currentSeasonStr, 10) : NaN
+                const hasNoRaces = !race || (seasonData?.MRData?.RaceTable?.Races && seasonData.MRData.RaceTable.Races.length === 0) || totalNum === 0
+
+                if (hasNoRaces && Number.isFinite(currentSeasonNum)) {
+                    const prevSeason = currentSeasonNum - 1
+                    try {
+                        const prevLastUrl = `https://api.jolpi.ca/ergast/f1/${prevSeason}/last/results.json`
+                        const prevSeasonUrl = `https://api.jolpi.ca/ergast/f1/${prevSeason}.json`
+                        const [prevLastRes, prevSeasonRes] = await Promise.all([
+                            fetch(prevLastUrl),
+                            fetch(prevSeasonUrl),
+                        ])
+
+                        if (prevLastRes.ok && prevSeasonRes.ok) {
+                            const prevLastData = await prevLastRes.json()
+                            const prevSeasonData = await prevSeasonRes.json()
+                            const prevRace = prevLastData?.MRData?.RaceTable?.Races?.[0]
+
+                            if (prevRace) {
+                                race = prevRace
+                            }
+
+                            const prevTotalStr = prevSeasonData?.MRData?.total ?? String(prevSeasonData?.MRData?.RaceTable?.Races?.length ?? '')
+                            totalNum = prevTotalStr ? parseInt(prevTotalStr, 10) : NaN
+                        }
+                    } catch (err) {
+                        // ignore fallback errors and proceed with what we have
+                        console.warn('Failed to fetch previous season data', err)
+                    }
+                }
+
                 setRaceName(race?.raceName || 'Last F1 Race')
                 setResults(race?.Results || [])
+
+                const roundStr = race?.round
+                const roundNum = roundStr ? parseInt(roundStr, 10) : NaN
+                setLastRound(Number.isFinite(roundNum) ? roundNum : null)
+
+                setTotalRaces(Number.isFinite(totalNum) ? totalNum : null)
+
                 setLoading(false)
-            })
-            .catch(() => {
-                setError('Failed to fetch race results.')
+            } catch (e) {
+                console.error('Failed to load race data', e)
+                setError('Failed to fetch race/season data.')
                 setLoading(false)
-            })
+            }
+        }
+
+        load()
     }, [])
 
     return (
@@ -43,26 +112,31 @@ const MainPage = () => {
             ) : error ? (
                 <p style={{ color: 'red' }}>{error}</p>
             ) : (
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Pos</th>
-                            <th>Driver</th>
-                            <th>Constructor</th>
-                            <th>Points</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {results.map((result, idx) => (
-                            <tr key={idx}>
-                                <td>{result.position}</td>
-                                <td>{result.Driver.givenName} {result.Driver.familyName} ({result.Driver.nationality})</td>
-                                <td>{result.Constructor.name} ({result.Constructor.nationality})</td>
-                                <td>{result.points}</td>
+                <>
+                    {lastRound !== null && totalRaces !== null && (
+                        <p style={{ fontWeight: 600 }}>Race {lastRound} / {totalRaces}</p>
+                    )}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pos</th>
+                                <th>Driver</th>
+                                <th>Constructor</th>
+                                <th>Points</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {results.map((result, idx) => (
+                                <tr key={idx}>
+                                    <td>{result.position}</td>
+                                    <td>{result.Driver.givenName} {result.Driver.familyName} ({result.Driver.nationality})</td>
+                                    <td>{result.Constructor.name} ({result.Constructor.nationality})</td>
+                                    <td>{result.points}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </>
             )}
         </div>
     )
