@@ -8,6 +8,7 @@ interface RaceResult {
         nationality: string;
     };
     Constructor: {
+        constructorId?: string;
         name: string;
         nationality: string;
     };
@@ -32,6 +33,10 @@ const MainPage = () => {
     const [circuitName, setCircuitName] = useState<string | null>(null)
     const [locality, setLocality] = useState<string | null>(null)
     const [country, setCountry] = useState<string | null>(null)
+    const [standings, setStandings] = useState<any[]>([])
+    const [standingsSeason, setStandingsSeason] = useState<number | null>(null)
+    const [constructorStandings, setConstructorStandings] = useState<any[]>([])
+    const [constructorStandingsSeason, setConstructorStandingsSeason] = useState<number | null>(null)
 
     useEffect(() => {
         async function load() {
@@ -116,6 +121,86 @@ const MainPage = () => {
 
                 setTotalRaces(Number.isFinite(totalNum) ? totalNum : null)
 
+                // Fetch driver standings for current season; fall back to previous if empty
+                try {
+                    let standingsData: any = null
+                    let standingsSeasonNum = currentSeasonNum
+
+                    const standingsUrl = 'https://api.jolpi.ca/ergast/f1/current/driverstandings.json'
+                    const standingsRes = await fetch(standingsUrl)
+                    if (standingsRes.ok) {
+                        const data = await standingsRes.json()
+                        const lists = data?.MRData?.StandingsTable?.StandingsLists ?? []
+                        if (lists && lists.length > 0 && lists[0]?.DriverStandings?.length > 0) {
+                            standingsData = data
+                        }
+                    }
+
+                    if (!standingsData && Number.isFinite(currentSeasonNum)) {
+                        const prev = currentSeasonNum - 1
+                        try {
+                            const prevStandingsUrl = `https://api.jolpi.ca/ergast/f1/${prev}/driverstandings.json`
+                            const prevRes = await fetch(prevStandingsUrl)
+                            if (prevRes.ok) {
+                                const prevData = await prevRes.json()
+                                const prevLists = prevData?.MRData?.StandingsTable?.StandingsLists ?? []
+                                if (prevLists && prevLists.length > 0 && prevLists[0]?.DriverStandings?.length > 0) {
+                                    standingsData = prevData
+                                    standingsSeasonNum = prev
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('Failed to fetch previous season standings', err)
+                        }
+                    }
+
+                    const driverStandings = standingsData?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings ?? []
+                    setStandings(driverStandings)
+                    setStandingsSeason(Number.isFinite(standingsSeasonNum) ? standingsSeasonNum : null)
+                } catch (err) {
+                    console.warn('Failed to load driver standings', err)
+                }
+
+                // Fetch constructor standings for current season; fall back to previous if empty
+                try {
+                    let conData: any = null
+                    let conSeasonNum = currentSeasonNum
+
+                    const conUrl = 'https://api.jolpi.ca/ergast/f1/current/constructorstandings.json'
+                    const conRes = await fetch(conUrl)
+                    if (conRes.ok) {
+                        const data = await conRes.json()
+                        const lists = data?.MRData?.StandingsTable?.StandingsLists ?? []
+                        if (lists && lists.length > 0 && lists[0]?.ConstructorStandings?.length > 0) {
+                            conData = data
+                        }
+                    }
+
+                    if (!conData && Number.isFinite(currentSeasonNum)) {
+                        const prev = currentSeasonNum - 1
+                        try {
+                            const prevConUrl = `https://api.jolpi.ca/ergast/f1/${prev}/constructorstandings.json`
+                            const prevRes = await fetch(prevConUrl)
+                            if (prevRes.ok) {
+                                const prevData = await prevRes.json()
+                                const prevLists = prevData?.MRData?.StandingsTable?.StandingsLists ?? []
+                                if (prevLists && prevLists.length > 0 && prevLists[0]?.ConstructorStandings?.length > 0) {
+                                    conData = prevData
+                                    conSeasonNum = prev
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('Failed to fetch previous season constructor standings', err)
+                        }
+                    }
+
+                    const conStandings = conData?.MRData?.StandingsTable?.StandingsLists?.[0]?.ConstructorStandings ?? []
+                    setConstructorStandings(conStandings)
+                    setConstructorStandingsSeason(Number.isFinite(conSeasonNum) ? conSeasonNum : null)
+                } catch (err) {
+                    console.warn('Failed to load constructor standings', err)
+                }
+
                 setLoading(false)
             } catch (e) {
                 console.error('Failed to load race data', e)
@@ -133,6 +218,25 @@ const MainPage = () => {
         return Number.isFinite(n) ? n : null
     })()
 
+    const seasonWinnerPoints = (() => {
+        if (!standings || standings.length === 0) return null
+        const p = standings[0]?.points
+        const n = p ? parseFloat(p) : NaN
+        return Number.isFinite(n) ? n : null
+    })()
+
+    const constructorResults = (() => {
+        const map: Record<string, { constructorId: string; name: string; points: number }> = {}
+        results.forEach(r => {
+            const id = r.Constructor?.constructorId ?? r.Constructor?.name ?? 'unknown'
+            const name = r.Constructor?.name ?? id
+            const pts = Number.isFinite(parseFloat(r.points)) ? parseFloat(r.points) : 0
+            if (!map[id]) map[id] = { constructorId: id, name, points: 0 }
+            map[id].points += pts
+        })
+        return Object.values(map).sort((a, b) => b.points - a.points)
+    })()
+
     return (
         <div>
             <h2>{raceName}</h2>
@@ -148,38 +252,131 @@ const MainPage = () => {
                     {lastRound !== null && totalRaces !== null && (
                         <p style={{ fontWeight: 600 }}>Round {lastRound} / {totalRaces}</p>
                     )}
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Pos</th>
-                                <th>Driver</th>
-                                <th>Constructor</th>
-                                <th>Points</th>
-                                <th>Interval</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {results.map((result, idx) => (
-                                <tr key={idx}>
-                                    <td>{result.position}</td>
-                                    <td>{result.Driver.givenName} {result.Driver.familyName} ({result.Driver.nationality})</td>
-                                    <td>{result.Constructor.name} ({result.Constructor.nationality})</td>
-                                    <td>{result.points}</td>
-                                    <td>{
-                                        result.position === '1'
-                                            ? '—'
-                                            : result.status === 'Lapped' && winnerLaps !== null && result.laps
-                                            ? (() => {
-                                                const diff = winnerLaps - parseInt(result.laps || '0', 10)
-                                                if (!Number.isFinite(diff) || diff <= 0) return result.Time?.time ?? result.status ?? ''
-                                                return `+${diff} ${Math.abs(diff) === 1 ? 'lap' : 'laps'}`
-                                            })()
-                                            : (result.Time?.time ?? result.status ?? '')
-                                    }</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                            <h3 style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>Last race driver's results</h3>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Pos</th>
+                                        <th>Driver</th>
+                                        <th>Constructor</th>
+                                        <th>Points</th>
+                                        <th>Interval</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {results.map((result, idx) => (
+                                        <tr key={idx}>
+                                            <td>{result.position}</td>
+                                            <td>{result.Driver.givenName} {result.Driver.familyName}</td>
+                                            <td>{result.Constructor.name}</td>
+                                            <td>{result.points}</td>
+                                            <td>{
+                                                result.position === '1'
+                                                    ? '—'
+                                                    : result.status === 'Lapped' && winnerLaps !== null && result.laps
+                                                    ? (() => {
+                                                        const diff = winnerLaps - parseInt(result.laps || '0', 10)
+                                                        if (!Number.isFinite(diff) || diff <= 0) return result.Time?.time ?? result.status ?? ''
+                                                        return `+${diff} ${Math.abs(diff) === 1 ? 'lap' : 'laps'}`
+                                                    })()
+                                                    : (result.Time?.time ?? result.status ?? '')
+                                            }</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style={{ width: '260px' }}>
+                            <h3 style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>Last race constructor's results</h3>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Constructor</th>
+                                        <th>Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {constructorResults.map(c => (
+                                        <tr key={c.constructorId}>
+                                            <td>{c.name}</td>
+                                            <td>{c.points}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: '1rem', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                            <h3 style={{ marginTop: '0.25rem', marginBottom: '0.5rem' }}>Last season drivers standings{standingsSeason ? ` (${standingsSeason})` : ''}</h3>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Pos</th>
+                                        <th>Driver</th>
+                                        <th>Nationality</th>
+                                        <th>Constructor</th>
+                                        <th>Wins</th>
+                                        <th>Points</th>
+                                        <th>Interval</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {standings.map((s, i) => {
+                                        const pos = s.position
+                                        const drv = s.Driver
+                                        const constr = s.Constructors?.[0]
+                                        const wins = s.wins ?? '0'
+                                        const pts = s.points
+                                        const interval = pos === '1' ? '—' : (seasonWinnerPoints !== null ? `+${(seasonWinnerPoints - parseFloat(pts)).toFixed(0)} pts` : '')
+                                        return (
+                                            <tr key={drv?.driverId ?? `${pos}-${i}`}>
+                                                <td>{pos}</td>
+                                                <td>{drv?.givenName} {drv?.familyName}</td>
+                                                <td>{drv?.nationality}</td>
+                                                <td>{constr?.name}</td>
+                                                <td>{wins}</td>
+                                                <td>{pts}</td>
+                                                <td>{interval}</td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style={{ width: '320px' }}>
+                            <h3 style={{ marginTop: '0.25rem', marginBottom: '0.5rem' }}>Last season constructors standings{constructorStandingsSeason ? ` (${constructorStandingsSeason})` : ''}</h3>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Pos</th>
+                                        <th>Constructor</th>
+                                        <th>Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {constructorStandings.map((c, i) => {
+                                        const pos = c.position
+                                        const name = c.Constructor?.name ?? c.constructorId
+                                        const pts = c.points
+                                        return (
+                                            <tr key={c.constructorId ?? `${pos}-${i}`}>
+                                                <td>{pos}</td>
+                                                <td>{name}</td>
+                                                <td>{pts}</td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </>
             )}
         </div>
