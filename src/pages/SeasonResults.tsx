@@ -73,7 +73,7 @@ const SeasonResults = () => {
                 }
 
                 // fetch all results for season via paginated /results/ (offset)
-                const pageLimit = 400
+                const pageLimit = 100
                 let offset = 0
                 let totalResults = Infinity
                 const raceResultsMap = new Map<string, any[]>()
@@ -281,6 +281,22 @@ const SeasonResults = () => {
         })
     })()
 
+    // Compute champion summaries and wins
+    const championSummary = (() => {
+        const driverChampion = driverStandings?.[0]?.Driver
+        const constructorChampion = constructorStandings?.[0]?.Constructor
+
+        const winners = seasonRaces.map((r: any) => {
+            const winner = (r?.Results ?? []).find((res: any) => String(res?.position ?? '') === '1')
+            return winner ?? null
+        }).filter(Boolean) as any[]
+
+        const driverChampionWins = driverChampion ? winners.filter(w => w.Driver?.driverId === driverChampion.driverId).length : 0
+        const constructorChampionWins = constructorChampion ? winners.filter(w => w.Constructor?.constructorId === constructorChampion.constructorId).length : 0
+
+        return { driverChampion, driverChampionWins, constructorChampion, constructorChampionWins }
+    })()
+
     return (
         <div>
             <h2>Results from Season</h2>
@@ -307,6 +323,35 @@ const SeasonResults = () => {
                 <p style={{ color: 'red' }}>{error}</p>
             ) : (
                 <>
+                    {/* Top summary boxes: driver champion + constructor champion */}
+                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', alignItems: 'stretch', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                        <div style={{ minWidth: '260px', padding: '12px 16px', borderRadius: '8px', border: '1px solid #000000ff', background: '#fafafa' }}>
+                            <div style={{ fontSize: '0.9rem', color: '#555', marginBottom: '4px' }}>Driver World Champion</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#000' }}>
+                                {championSummary.driverChampion ? (
+                                    <>
+                                        {championSummary.driverChampion.givenName} {championSummary.driverChampion.familyName}
+                                    </>
+                                ) : (
+                                    'N/A'
+                                )}
+                            </div>
+                            <div style={{ marginTop: '6px', color: '#333' }}>1st place finishes: <span style={{ fontWeight: 600 }}>{championSummary.driverChampionWins}</span></div>
+                        </div>
+
+                        <div style={{ minWidth: '260px', padding: '12px 16px', borderRadius: '8px', border: '1px solid #000000ff', background: '#fafafa' }}>
+                            <div style={{ fontSize: '0.9rem', color: '#555', marginBottom: '4px' }}>Constructor Champions</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#000' }}>
+                                {championSummary.constructorChampion ? (
+                                    championSummary.constructorChampion.name
+                                ) : (
+                                    'N/A'
+                                )}
+                            </div>
+                            <div style={{ marginTop: '6px', color: '#333' }}>Combined wins: <span style={{ fontWeight: 600 }}>{championSummary.constructorChampionWins}</span></div>
+                        </div>
+                    </div>
+
                     <div style={{ overflowX: 'auto', display: 'block', maxWidth: '100vw' }}>
                         <h3>Driver results by round ({year})</h3>
                         <table style={{ width: 'max-content', whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
