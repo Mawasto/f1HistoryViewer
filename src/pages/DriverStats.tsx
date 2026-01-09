@@ -9,7 +9,7 @@ type Driver = {
     nationality?: string
 }
 
-const DRIVER_CACHE_KEY = 'allDrivers_cache_v1'
+const DRIVER_CACHE_KEY = 'allDrivers_cache_v3'
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
 
@@ -25,6 +25,7 @@ async function fetchDriversRateLimited(): Promise<Driver[]> {
         }
     }
 
+    // Keep limit at 100 as requested; paginate through all pages.
     const limit = 100
     let offset = 0
     let total = Infinity
@@ -32,12 +33,14 @@ async function fetchDriversRateLimited(): Promise<Driver[]> {
 
     while (offset === 0 || offset < total) {
         let attempt = 0
-        while (attempt < 4) {
+        let success = false
+
+        while (attempt < 6 && !success) {
             const url = `https://api.jolpi.ca/ergast/f1/drivers/?limit=${limit}&offset=${offset}`
             const res = await fetch(url)
             if (res.status === 429) {
-                // back off on throttling
-                await sleep(500 * (attempt + 1))
+                // back off on throttling and retry
+                await sleep(600 * (attempt + 1))
                 attempt++
                 continue
             }
@@ -50,12 +53,16 @@ async function fetchDriversRateLimited(): Promise<Driver[]> {
             total = parseInt(mr?.total ?? '0', 10) || 0
             const drivers: Driver[] = mr?.DriverTable?.Drivers ?? []
             all.push(...drivers)
-            break
+            success = true
+        }
+
+        if (!success) {
+            throw new Error('Driver list request was repeatedly rate-limited. Please try again soon.')
         }
 
         offset += limit
         // gentle pacing to stay under burst rate
-        await sleep(300)
+        await sleep(500)
     }
 
     try { sessionStorage.setItem(DRIVER_CACHE_KEY, JSON.stringify(all)) } catch {}
