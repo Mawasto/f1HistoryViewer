@@ -4,14 +4,55 @@ type Driver = {
     driverId: string
     givenName: string
     familyName: string
+    dateOfBirth?: string
     permanentNumber?: string
     code?: string
     nationality?: string
 }
 
 const DRIVER_CACHE_KEY = 'allDrivers_cache_v3'
+const DRIVER_STATS_CACHE_PREFIX = 'driver_stats_cache_v1_'
+const ACTIVE_STATUS_CACHE_PREFIX = 'active_driver_ids_'
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
+
+async function fetchJsonWithBackoff(url: string, maxRetries = 6, baseDelay = 600): Promise<any> {
+    let attempt = 0
+    while (attempt < maxRetries) {
+        const res = await fetch(url)
+        if (res.status === 429) {
+            await sleep(baseDelay * (attempt + 1))
+            attempt++
+            continue
+        }
+        if (!res.ok) {
+            throw new Error(`Request failed: ${url}`)
+        }
+        return res.json()
+    }
+    throw new Error(`Request repeatedly rate-limited: ${url}`)
+}
+
+async function fetchPaginatedRaces(urlBuilder: (offset: number, limit: number) => string): Promise<any[]> {
+    const limit = 100
+    let offset = 0
+    let total = Infinity
+    const races: any[] = []
+
+    while (offset === 0 || offset < total) {
+        const url = urlBuilder(offset, limit)
+        const data = await fetchJsonWithBackoff(url)
+        const mr = data?.MRData
+        total = parseInt(mr?.total ?? '0', 10) || 0
+        const page = mr?.RaceTable?.Races ?? []
+        races.push(...page)
+
+        offset += limit
+        await sleep(500)
+    }
+
+    return races
+}
 
 async function fetchDriversRateLimited(): Promise<Driver[]> {
     // try cache first
@@ -69,11 +110,124 @@ async function fetchDriversRateLimited(): Promise<Driver[]> {
     return all
 }
 
+type DriverCareerStats = {
+    racesStarted: number
+    wins: number
+    poles: number
+    seasons: number
+    pointsBySeason: Record<string, number>
+}
+
+type ActiveLookup = { ids: Set<string>; constructorByDriver: Record<string, string> }
+
+async function fetchActiveDriverIds(): Promise<ActiveLookup> {
+    const currentYear = new Date().getFullYear()
+    const seasonsToTry = ['current', String(currentYear - 1)]
+
+    for (const season of seasonsToTry) {
+        const cacheKey = `${ACTIVE_STATUS_CACHE_PREFIX}${season}`
+        const cached = sessionStorage.getItem(cacheKey)
+        if (cached) {
+            try {
+                const parsed: { ids: string[]; constructors: Record<string, string> } = JSON.parse(cached)
+                if (parsed?.ids && Array.isArray(parsed.ids) && parsed.constructors) {
+                    return { ids: new Set(parsed.ids), constructorByDriver: parsed.constructors }
+                }
+            } catch {
+                // ignore broken cache
+            }
+        }
+
+        const data = await fetchJsonWithBackoff(`https://api.jolpi.ca/ergast/f1/${season}/last/results.json`)
+        const races: any[] = data?.MRData?.RaceTable?.Races ?? []
+        if (!Array.isArray(races) || races.length === 0) {
+            // No races yet this season; try previous season
+            continue
+        }
+
+        const results: any[] = races[0]?.Results ?? []
+        const constructors: Record<string, string> = {}
+        const ids = results
+            .map((r) => {
+                const id = r?.Driver?.driverId
+                const constructorName = r?.Constructor?.name
+                if (id && constructorName) constructors[id] = constructorName
+                return id
+            })
+            .filter((id): id is string => Boolean(id))
+
+        const unique = Array.from(new Set(ids))
+        try { sessionStorage.setItem(cacheKey, JSON.stringify({ ids: unique, constructors })) } catch {}
+        return { ids: new Set(unique), constructorByDriver: constructors }
+    }
+
+    throw new Error('No recent race results available to determine active drivers.')
+}
+
+async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerStats> {
+    const cacheKey = `${DRIVER_STATS_CACHE_PREFIX}${driverId}`
+    const cached = sessionStorage.getItem(cacheKey)
+    if (cached) {
+        try {
+            return JSON.parse(cached)
+        } catch {
+            // ignore broken cache
+        }
+    }
+
+    const resultsRaces = await fetchPaginatedRaces((offset, limit) =>
+        `https://api.jolpi.ca/ergast/f1/drivers/${driverId}/results.json?limit=${limit}&offset=${offset}`
+    )
+
+    const qualifyingRaces = await fetchPaginatedRaces((offset, limit) =>
+        `https://api.jolpi.ca/ergast/f1/drivers/${driverId}/qualifying.json?limit=${limit}&offset=${offset}`
+    )
+
+    const pointsBySeason: Record<string, number> = {}
+    let wins = 0
+
+    for (const race of resultsRaces) {
+        const result = Array.isArray(race?.Results) ? race.Results[0] : undefined
+        if (!result) continue
+        const season = race?.season
+        if (season) {
+            const pts = parseFloat(result.points ?? '0') || 0
+            pointsBySeason[season] = (pointsBySeason[season] ?? 0) + pts
+        }
+        if (result.position === '1') wins++
+    }
+
+    let poles = 0
+    for (const race of qualifyingRaces) {
+        const quali = Array.isArray(race?.QualifyingResults) ? race.QualifyingResults[0] : undefined
+        if (!quali) continue
+        if (quali.position === '1') poles++
+    }
+
+    const seasons = Object.keys(pointsBySeason).length
+    const stats: DriverCareerStats = {
+        racesStarted: resultsRaces.length,
+        wins,
+        poles,
+        seasons,
+        pointsBySeason,
+    }
+
+    try { sessionStorage.setItem(cacheKey, JSON.stringify(stats)) } catch {}
+    return stats
+}
+
 const DriverStats = () => {
     const [drivers, setDrivers] = useState<Driver[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [selectedName, setSelectedName] = useState('')
+    const [stats, setStats] = useState<DriverCareerStats | null>(null)
+    const [statsLoading, setStatsLoading] = useState(false)
+    const [statsError, setStatsError] = useState('')
+    const [isActive, setIsActive] = useState<boolean | null>(null)
+    const [activeError, setActiveError] = useState('')
+    const [activeConstructor, setActiveConstructor] = useState('')
 
     useEffect(() => {
         let cancelled = false
@@ -102,6 +256,55 @@ const DriverStats = () => {
         if (!target) return undefined
         return drivers.find((d) => `${d.givenName} ${d.familyName}`.toLowerCase() === target)
     }, [drivers, selectedName])
+
+    useEffect(() => {
+        const driverId = selectedDriver?.driverId
+        if (!driverId) {
+            setStats(null)
+            setStatsError('')
+            setIsActive(null)
+            setActiveError('')
+            setActiveConstructor('')
+            return
+        }
+
+        let cancelled = false
+        ;(async () => {
+            setStatsLoading(true)
+            setStatsError('')
+            try {
+                const career = await fetchDriverCareerStats(driverId)
+                if (!cancelled) setStats(career)
+            } catch (err) {
+                if (!cancelled) setStatsError('Failed to load driver stats. Please retry in a moment.')
+            } finally {
+                if (!cancelled) setStatsLoading(false)
+            }
+        })()
+
+        return () => { cancelled = true }
+    }, [selectedDriver])
+
+    useEffect(() => {
+        const driverId = selectedDriver?.driverId
+        if (!driverId) return
+
+        let cancelled = false
+        ;(async () => {
+            setActiveError('')
+            try {
+                const activeLookup = await fetchActiveDriverIds()
+                if (!cancelled) {
+                    setIsActive(activeLookup.ids.has(driverId))
+                    setActiveConstructor(activeLookup.constructorByDriver[driverId] ?? '')
+                }
+            } catch (err) {
+                if (!cancelled) setActiveError('Could not determine active status.')
+            }
+        })()
+
+        return () => { cancelled = true }
+    }, [selectedDriver])
 
     return (
         <div>
@@ -134,10 +337,40 @@ const DriverStats = () => {
             {selectedDriver && (
                 <div style={{ marginTop: '1rem', textAlign: 'left' }}>
                     <h3>{selectedDriver.givenName} {selectedDriver.familyName}</h3>
-                    <p><strong>Driver ID:</strong> {selectedDriver.driverId}</p>
+                    <p><strong>Date of birth:</strong> {selectedDriver.dateOfBirth ?? 'N/A'}</p>
                     {selectedDriver.permanentNumber && <p><strong>Number:</strong> {selectedDriver.permanentNumber}</p>}
                     {selectedDriver.code && <p><strong>Code:</strong> {selectedDriver.code}</p>}
                     {selectedDriver.nationality && <p><strong>Nationality:</strong> {selectedDriver.nationality}</p>}
+
+                    {isActive !== null && !activeError && (
+                        <p><strong>Status:</strong> {isActive ? 'Active' : 'Retired'}</p>
+                    )}
+                    {isActive && activeConstructor && (
+                        <p><strong>Constructor:</strong> {activeConstructor}</p>
+                    )}
+                    {activeError && <p style={{ color: 'red' }}>{activeError}</p>}
+
+                    {statsLoading && <p>Loading career stats…</p>}
+                    {statsError && <p style={{ color: 'red' }}>{statsError}</p>}
+
+                    {stats && !statsLoading && !statsError && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                            <p><strong>Races started:</strong> {stats.racesStarted}</p>
+                            <p><strong>Wins:</strong> {stats.wins}</p>
+                            <p><strong>Pole positions:</strong> {stats.poles}</p>
+                            <p><strong>Seasons raced:</strong> {stats.seasons}</p>
+                            <div style={{ marginTop: '0.5rem' }}>
+                                <strong>Points by season:</strong>
+                                <ul style={{ marginTop: '0.25rem' }}>
+                                    {Object.entries(stats.pointsBySeason)
+                                        .sort(([a], [b]) => Number(a) - Number(b))
+                                        .map(([season, pts]) => (
+                                            <li key={season}>{season}: {pts}</li>
+                                        ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
