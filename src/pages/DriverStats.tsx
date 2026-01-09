@@ -11,7 +11,7 @@ type Driver = {
 }
 
 const DRIVER_CACHE_KEY = 'allDrivers_cache_v3'
-const DRIVER_STATS_CACHE_PREFIX = 'driver_stats_cache_v1_'
+const DRIVER_STATS_CACHE_PREFIX = 'driver_stats_cache_v3_'
 const ACTIVE_STATUS_CACHE_PREFIX = 'active_driver_ids_'
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
@@ -110,12 +110,23 @@ async function fetchDriversRateLimited(): Promise<Driver[]> {
     return all
 }
 
+type ConstructorBreakdown = {
+    constructorId: string
+    name: string
+    races: number
+    wins: number
+    points: number
+    firstSeason: number
+    firstRound: number
+}
+
 type DriverCareerStats = {
     racesStarted: number
     wins: number
     poles: number
     seasons: number
     pointsBySeason: Record<string, number>
+    constructorBreakdown: ConstructorBreakdown[]
 }
 
 type ActiveLookup = { ids: Set<string>; constructorByDriver: Record<string, string> }
@@ -185,16 +196,49 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
 
     const pointsBySeason: Record<string, number> = {}
     let wins = 0
+    const constructorMap: Record<string, ConstructorBreakdown> = {}
 
     for (const race of resultsRaces) {
         const result = Array.isArray(race?.Results) ? race.Results[0] : undefined
         if (!result) continue
         const season = race?.season
+        const round = race?.round
+        const seasonNum = Number(season)
+        const roundNum = Number(round)
+        const seasonRank = Number.isFinite(seasonNum) ? seasonNum : Number.MAX_SAFE_INTEGER
+        const roundRank = Number.isFinite(roundNum) ? roundNum : Number.MAX_SAFE_INTEGER
+
         if (season) {
             const pts = parseFloat(result.points ?? '0') || 0
             pointsBySeason[season] = (pointsBySeason[season] ?? 0) + pts
         }
         if (result.position === '1') wins++
+
+        const cid = result?.Constructor?.constructorId ?? result?.Constructor?.name ?? 'unknown'
+        const cname = result?.Constructor?.name ?? cid
+        if (!constructorMap[cid]) {
+            constructorMap[cid] = {
+                constructorId: cid,
+                name: cname,
+                races: 0,
+                wins: 0,
+                points: 0,
+                firstSeason: seasonRank,
+                firstRound: roundRank,
+            }
+        } else {
+            const existing = constructorMap[cid]
+            const isEarlier =
+                seasonRank < existing.firstSeason ||
+                (seasonRank === existing.firstSeason && roundRank < existing.firstRound)
+            if (isEarlier) {
+                existing.firstSeason = seasonRank
+                existing.firstRound = roundRank
+            }
+        }
+        constructorMap[cid].races += 1
+        constructorMap[cid].points += parseFloat(result.points ?? '0') || 0
+        if (result.position === '1') constructorMap[cid].wins += 1
     }
 
     let poles = 0
@@ -211,6 +255,10 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
         poles,
         seasons,
         pointsBySeason,
+        constructorBreakdown: Object.values(constructorMap).sort((a, b) => {
+            if (a.firstSeason !== b.firstSeason) return a.firstSeason - b.firstSeason
+            return a.firstRound - b.firstRound
+        }),
     }
 
     try { sessionStorage.setItem(cacheKey, JSON.stringify(stats)) } catch {}
@@ -367,6 +415,16 @@ const DriverStats = () => {
                                         .map(([season, pts]) => (
                                             <li key={season}>{season}: {pts}</li>
                                         ))}
+                                </ul>
+                            </div>
+                            <div style={{ marginTop: '0.75rem' }}>
+                                <strong>Performance by constructor:</strong>
+                                <ul style={{ marginTop: '0.25rem' }}>
+                                    {stats.constructorBreakdown.map((c) => (
+                                        <li key={c.constructorId}>
+                                            {c.name} — races: {c.races}, points: {c.points}, wins: {c.wins}
+                                        </li>
+                                    ))}
                                 </ul>
                             </div>
                         </div>
