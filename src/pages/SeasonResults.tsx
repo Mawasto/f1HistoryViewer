@@ -2,7 +2,48 @@ import { useEffect, useState } from 'react'
 
 const MIN_YEAR = 1950
 const CURRENT_YEAR = new Date().getFullYear()
-const randYear = () => Math.floor(Math.random() * (CURRENT_YEAR - MIN_YEAR + 1)) + MIN_YEAR
+const DISABLED_YEAR = 2026
+const randYear = () => {
+    const years = Array.from({ length: CURRENT_YEAR - MIN_YEAR + 1 }, (_, i) => MIN_YEAR + i).filter(y => y !== DISABLED_YEAR)
+    if (years.length === 0) return MIN_YEAR
+    return years[Math.floor(Math.random() * years.length)]
+}
+
+const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
+
+const fetchJsonWithRetry = async (url: string, retries = 3, backoffMs = 800) => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const res = await fetch(url)
+            let json: any = null
+            let throttled = res.status === 429
+
+            try {
+                json = await res.json()
+                const detail = typeof json?.detail === 'string' ? json.detail.toLowerCase() : ''
+                const message = typeof json?.message === 'string' ? json.message.toLowerCase() : ''
+                if (detail.includes('throttled') || message.includes('throttled')) throttled = true
+            } catch {
+                json = null
+            }
+
+            const shouldRetry = throttled || res.status >= 500
+
+            if (!shouldRetry) {
+                if (res.ok) return json
+                throw new Error(`Failed to fetch ${url} — status ${res.status}`)
+            }
+
+            if (attempt === retries) throw new Error(`Throttled or server error fetching ${url}`)
+        } catch (e) {
+            if (attempt === retries) throw e
+        }
+
+        await sleep(backoffMs * (attempt + 1))
+    }
+
+    throw new Error(`Failed to fetch ${url}`)
+}
 
 const SeasonResults = () => {
     const [year, setYear] = useState<number>(randYear())
@@ -28,14 +69,10 @@ const SeasonResults = () => {
 
             try {
                 // fetch standings
-                const [drvRes, conRes] = await Promise.all([
-                    fetch(`https://api.jolpi.ca/ergast/f1/${year}/driverstandings/`),
-                    fetch(`https://api.jolpi.ca/ergast/f1/${year}/constructorstandings/`),
+                const [drvData, conData] = await Promise.all([
+                    fetchJsonWithRetry(`https://api.jolpi.ca/ergast/f1/${year}/driverstandings/`),
+                    fetchJsonWithRetry(`https://api.jolpi.ca/ergast/f1/${year}/constructorstandings/`),
                 ])
-                if (!drvRes.ok || !conRes.ok) throw new Error('Network response was not ok for standings')
-
-                const drvData = await drvRes.json()
-                const conData = await conRes.json()
 
                 const drvList = drvData?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings ?? []
                 const conList = conData?.MRData?.StandingsTable?.StandingsLists?.[0]?.ConstructorStandings ?? []
@@ -44,9 +81,7 @@ const SeasonResults = () => {
 
                 // fetch races list (metadata: round, circuit, country)
                 const racesUrl = `https://api.jolpi.ca/ergast/f1/${year}/races/`
-                const racesRes = await fetch(racesUrl)
-                if (!racesRes.ok) throw new Error('Failed to fetch season races')
-                const racesData = await racesRes.json()
+                const racesData = await fetchJsonWithRetry(racesUrl)
                 const racesList = racesData?.MRData?.RaceTable?.Races ?? []
                 const sortedByRound = racesList.slice().sort((a: any, b: any) => {
                     const ra = parseInt(a.round ?? '0', 10)
@@ -77,14 +112,10 @@ const SeasonResults = () => {
                 let offset = 0
                 let totalResults = Infinity
                 const raceResultsMap = new Map<string, any[]>()
-                let pagesFetched = 0
 
                 while (offset === 0 || offset < totalResults) {
                     const url = `https://api.jolpi.ca/ergast/f1/${year}/results/?limit=${pageLimit}&offset=${offset}`
-                    const res = await fetch(url)
-                    if (!res.ok) throw new Error(`Failed to fetch results page at offset ${offset}`)
-                    const data = await res.json()
-                    pagesFetched++
+                    const data = await fetchJsonWithRetry(url)
                     const mr = data?.MRData
                     totalResults = parseInt(mr?.total ?? String(0), 10)
                     const racesFromPage = mr?.RaceTable?.Races ?? []
@@ -120,7 +151,6 @@ const SeasonResults = () => {
                 // if rounds are missing, start background retry loop to fetch missing rounds until complete
                 if (missing.length > 0) {
                     (async () => {
-                        const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
                         let current = mergedRaces.map((r: any) => ({ ...r, Results: (r.Results ?? []).slice() }))
                         while (true) {
                             for (let idx = 0; idx < current.length; idx++) {
@@ -132,14 +162,11 @@ const SeasonResults = () => {
                                 // try simple per-round fetch with retries
                                 for (let attempt = 0; attempt < 4; attempt++) {
                                     try {
-                                        const res = await fetch(`https://api.jolpi.ca/ergast/f1/${year}/${round}/results.json`)
-                                        if (res.ok) {
-                                            const data = await res.json()
-                                            const full = data?.MRData?.RaceTable?.Races?.[0]
-                                            if (full && Array.isArray(full.Results) && full.Results.length > 0) {
-                                                current[idx] = full
-                                                break
-                                            }
+                                        const data = await fetchJsonWithRetry(`https://api.jolpi.ca/ergast/f1/${year}/${round}/results.json`)
+                                        const full = data?.MRData?.RaceTable?.Races?.[0]
+                                        if (full && Array.isArray(full.Results) && full.Results.length > 0) {
+                                            current[idx] = full
+                                            break
                                         }
                                     } catch {}
                                     await sleep(500 * (attempt + 1))
@@ -150,27 +177,22 @@ const SeasonResults = () => {
                                 // paginated merge fallback
                                 try {
                                     const pageLimit = 200
-                                    const first = await fetch(`https://api.jolpi.ca/ergast/f1/${year}/${round}/results.json?limit=${pageLimit}&offset=0`)
-                                    if (first.ok) {
-                                        const firstData = await first.json()
-                                        const firstRace = firstData?.MRData?.RaceTable?.Races?.[0]
-                                        let results = (firstRace?.Results) ? firstRace.Results.slice() : []
-                                        const total = parseInt(firstData?.MRData?.total ?? '0', 10)
-                                        const limit = parseInt(firstData?.MRData?.limit ?? String(pageLimit), 10)
-                                        if (total > results.length) {
-                                            for (let off = limit; off < total; off += limit) {
-                                                try {
-                                                    const p = await fetch(`https://api.jolpi.ca/ergast/f1/${year}/${round}/results.json?limit=${limit}&offset=${off}`)
-                                                    if (!p.ok) continue
-                                                    const pd = await p.json()
-                                                    const pr = pd?.MRData?.RaceTable?.Races?.[0]
-                                                    if (pr?.Results) results = results.concat(pr.Results)
-                                                } catch {}
-                                            }
+                                    const firstData = await fetchJsonWithRetry(`https://api.jolpi.ca/ergast/f1/${year}/${round}/results.json?limit=${pageLimit}&offset=0`)
+                                    const firstRace = firstData?.MRData?.RaceTable?.Races?.[0]
+                                    let results = (firstRace?.Results) ? firstRace.Results.slice() : []
+                                    const total = parseInt(firstData?.MRData?.total ?? '0', 10)
+                                    const limit = parseInt(firstData?.MRData?.limit ?? String(pageLimit), 10)
+                                    if (total > results.length) {
+                                        for (let off = limit; off < total; off += limit) {
+                                            try {
+                                                const pd = await fetchJsonWithRetry(`https://api.jolpi.ca/ergast/f1/${year}/${round}/results.json?limit=${limit}&offset=${off}`)
+                                                const pr = pd?.MRData?.RaceTable?.Races?.[0]
+                                                if (pr?.Results) results = results.concat(pr.Results)
+                                            } catch {}
                                         }
-                                        if (results.length > 0) {
-                                            current[idx] = { ...(firstRace ?? r), Results: results }
-                                        }
+                                    }
+                                    if (results.length > 0) {
+                                        current[idx] = { ...(firstRace ?? r), Results: results }
                                     }
                                 } catch {}
                             }
@@ -310,7 +332,7 @@ const SeasonResults = () => {
                         style={{ marginLeft: '0.5rem', width: '120px' }}
                     >
                         {Array.from({ length: CURRENT_YEAR - MIN_YEAR + 1 }, (_, i) => MIN_YEAR + i).map(y => (
-                            <option key={y} value={y}>{y}</option>
+                            <option key={y} value={y} disabled={y === DISABLED_YEAR}>{y}{y === DISABLED_YEAR ? ' (unavailable)' : ''}</option>
                         ))}
                     </select>
                 </label>
