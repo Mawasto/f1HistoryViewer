@@ -21,6 +21,7 @@ type PitStopStat = {
 type DriverStopRank = {
 	driverId: string
 	stops: number
+	avgSeconds: number
 }
 
 type DriverNameMap = Record<string, string>
@@ -177,6 +178,7 @@ const Pitstops = () => {
 				let stopsCount = 0
 				let racesWithStops = 0
 				const stopsByDriver: Record<string, number> = {}
+				const durationByDriver: Record<string, number> = {}
 
 				for (let season = fromYear; season <= toYear; season++) {
 					if (cancelled) return
@@ -234,6 +236,7 @@ const Pitstops = () => {
 							if (!slowestLocal || durationSeconds > slowestLocal.durationSeconds) slowestLocal = stat
 							const driverKey = stat.driverId
 							stopsByDriver[driverKey] = (stopsByDriver[driverKey] ?? 0) + 1
+							durationByDriver[driverKey] = (durationByDriver[driverKey] ?? 0) + durationSeconds
 						})
 					}
 				}
@@ -251,7 +254,7 @@ const Pitstops = () => {
 				setTotalStops(stopsCount)
 				setTotalRaces(racesWithStops)
 				const ranking = Object.entries(stopsByDriver)
-					.map(([driverId, stops]) => ({ driverId, stops }))
+					.map(([driverId, stops]) => ({ driverId, stops, avgSeconds: (durationByDriver[driverId] ?? 0) / Math.max(stops, 1) }))
 					.sort((a, b) => b.stops - a.stops)
 				setDriverRanking(ranking)
 				setProgress('')
@@ -315,11 +318,11 @@ const Pitstops = () => {
 						<div style={{ border: '1px solid #000', borderRadius: '8px', padding: '0.75rem' }}>
 							<div style={{ fontWeight: 600, marginBottom: '0.35rem' }}>Driver pit stop counts (most → least)</div>
 							<ol style={{ margin: 0, paddingLeft: '1.2rem' }}>
-								{driverRanking.map((row) => (
-									<li key={row.driverId} style={{ marginBottom: '0.25rem' }}>
-										<span style={{ fontWeight: 600 }}>{driverNames[row.driverId] ?? row.driverId}</span>: {row.stops} stops
-									</li>
-								))}
+									{driverRanking.map((row) => (
+										<li key={row.driverId} style={{ marginBottom: '0.25rem' }}>
+											<span style={{ fontWeight: 600 }}>{driverNames[row.driverId] ?? row.driverId}</span>: {row.stops} stops, avg {row.avgSeconds.toFixed(3)}s
+										</li>
+									))}
 							</ol>
 						</div>
 					)}
