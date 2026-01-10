@@ -47,14 +47,15 @@ const SeasonCalendar = () => {
             <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <label>
                     Year:
-                    <input
-                        type="number"
-                        min={MIN_YEAR}
-                        max={MAX_YEAR}
+                    <select
                         value={year}
-                        onChange={(e) => setYear(Math.min(MAX_YEAR, Math.max(MIN_YEAR, Number(e.target.value) || MIN_YEAR)))}
+                        onChange={(e) => setYear(Number(e.target.value))}
                         style={{ marginLeft: '0.5rem', width: '120px' }}
-                    />
+                    >
+                        {Array.from({ length: MAX_YEAR - MIN_YEAR + 1 }, (_, i) => MIN_YEAR + i).map((y) => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
                 </label>
             </div>
 
