@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getChampionshipTitles } from '../data/championshipTitles'
 
 type Driver = {
     driverId: string
@@ -397,6 +398,7 @@ const DriverStats = () => {
                     {selectedDriver.permanentNumber && <p><strong>Number:</strong> {selectedDriver.permanentNumber}</p>}
                     {selectedDriver.code && <p><strong>Code:</strong> {selectedDriver.code}</p>}
                     {selectedDriver.nationality && <p><strong>Nationality:</strong> {selectedDriver.nationality}</p>}
+                    <p><strong>World Championships:</strong> {getChampionshipTitles(selectedDriver.driverId)}</p>
 
                     {isActive !== null && !activeError && (
                         <p><strong>Status:</strong> {isActive ? 'Active' : 'Retired'}</p>
