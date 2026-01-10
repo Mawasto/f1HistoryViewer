@@ -265,6 +265,14 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
     return stats
 }
 
+const POLE_WARNING = 'Data might be incorrect as there is no qualifying results stored for years before 1991'
+
+const isBornBefore1975 = (dob?: string) => {
+    if (!dob) return false
+    const year = Number(dob.split('-')[0])
+    return Number.isFinite(year) && year < 1975
+}
+
 const DriverStats = () => {
     const [drivers, setDrivers] = useState<Driver[]>([])
     const [loading, setLoading] = useState(true)
@@ -405,7 +413,18 @@ const DriverStats = () => {
                         <div style={{ marginTop: '0.75rem' }}>
                             <p><strong>Races started:</strong> {stats.racesStarted}</p>
                             <p><strong>Wins:</strong> {stats.wins}</p>
-                            <p><strong>Pole positions:</strong> {stats.poles}</p>
+                            <p>
+                                <strong>Pole positions:</strong> {stats.poles}
+                                {isBornBefore1975(selectedDriver?.dateOfBirth) && (
+                                    <span
+                                        title={POLE_WARNING}
+                                        aria-label={POLE_WARNING}
+                                        style={{ marginLeft: '6px', cursor: 'help' }}
+                                    >
+                                        ⓘ
+                                    </span>
+                                )}
+                            </p>
                             <p><strong>Seasons raced:</strong> {stats.seasons}</p>
                             <div style={{ marginTop: '0.5rem' }}>
                                 <strong>Points by season:</strong>
