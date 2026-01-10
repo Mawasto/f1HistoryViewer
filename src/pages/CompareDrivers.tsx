@@ -112,6 +112,7 @@ type DriverCareerStats = {
     wins: number
     poles: number
     seasons: number
+    totalPoints: number
     pointsBySeason: Record<string, number>
     constructorBreakdown: ConstructorBreakdown[]
 }
@@ -229,11 +230,13 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
     }
 
     const seasons = Object.keys(pointsBySeason).length
+    const totalPoints = Object.values(pointsBySeason).reduce((sum, pts) => sum + pts, 0)
     const stats: DriverCareerStats = {
         racesStarted: resultsRaces.length,
         wins,
         poles,
         seasons,
+        totalPoints,
         pointsBySeason,
         constructorBreakdown: Object.values(constructorMap).sort((a, b) => {
             if (a.firstSeason !== b.firstSeason) return a.firstSeason - b.firstSeason
@@ -244,6 +247,8 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
     try { sessionStorage.setItem(cacheKey, JSON.stringify(stats)) } catch {}
     return stats
 }
+
+const POLE_WARNING = 'Data might be incorrect as there is no qualifying results stored for years before 1991'
 
 const CompareDrivers = () => {
     const [drivers, setDrivers] = useState<Driver[]>([])
@@ -371,7 +376,21 @@ const CompareDrivers = () => {
 
     const ready = selectedA && selectedB
 
-    const renderDriverBlock = (label: string, driver: Driver | undefined, stats: DriverCareerStats | null, statsLoading: boolean, statsError: string, isActive: boolean | null, activeConstructor: string) => (
+    const isBornBefore1975 = (dob?: string) => {
+        if (!dob) return false
+        const year = Number(dob.split('-')[0])
+        return Number.isFinite(year) && year < 1975
+    }
+
+    const renderDriverBlock = (
+        label: string,
+        driver: Driver | undefined,
+        stats: DriverCareerStats | null,
+        statsLoading: boolean,
+        statsError: string,
+        isActive: boolean | null,
+        activeConstructor: string
+    ) => (
         <div style={{ flex: 1, minWidth: '320px' }}>
             <h3>{label}</h3>
             {driver ? (
@@ -390,18 +409,20 @@ const CompareDrivers = () => {
                         <div style={{ marginTop: '0.75rem' }}>
                             <p><strong>Races started:</strong> {stats.racesStarted}</p>
                             <p><strong>Wins:</strong> {stats.wins}</p>
-                            <p><strong>Pole positions:</strong> {stats.poles}</p>
+                            <p>
+                                <strong>Pole positions:</strong> {stats.poles}
+                                {isBornBefore1975(driver?.dateOfBirth) && (
+                                    <span
+                                        title={POLE_WARNING}
+                                        aria-label={POLE_WARNING}
+                                        style={{ marginLeft: '6px', cursor: 'help' }}
+                                    >
+                                        ⓘ
+                                    </span>
+                                )}
+                            </p>
                             <p><strong>Seasons raced:</strong> {stats.seasons}</p>
-                            <div style={{ marginTop: '0.5rem' }}>
-                                <strong>Points by season:</strong>
-                                <ul style={{ marginTop: '0.25rem' }}>
-                                    {Object.entries(stats.pointsBySeason)
-                                        .sort(([a], [b]) => Number(a) - Number(b))
-                                        .map(([season, pts]) => (
-                                            <li key={season}>{season}: {pts}</li>
-                                        ))}
-                                </ul>
-                            </div>
+                            <p><strong>Total points:</strong> {stats.totalPoints}</p>
                             <div style={{ marginTop: '0.75rem' }}>
                                 <strong>Performance by constructor:</strong>
                                 <ul style={{ marginTop: '0.25rem' }}>
