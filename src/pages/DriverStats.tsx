@@ -514,6 +514,44 @@ const DriverStats = () => {
         }
     }, [stats])
 
+    const constructorRacesChart = useMemo(() => {
+        if (!stats || stats.constructorBreakdown.length === 0) return null
+        const labels = stats.constructorBreakdown.map((c) => c.name)
+        const races = stats.constructorBreakdown.map((c) => c.races)
+
+        return {
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Races',
+                        data: races,
+                        backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                        borderColor: 'rgba(99, 102, 241, 1)',
+                        borderWidth: 1,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' as const },
+                    title: { display: true, text: 'Races by constructor' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context: any) => `${context.dataset.label}: ${context.formattedValue}`,
+                        },
+                    },
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { grid: { display: false } },
+                },
+            },
+        }
+    }, [stats])
+
     return (
         <div>
             <h2>Driver Stats</h2>
@@ -581,45 +619,30 @@ const DriverStats = () => {
                             </p>
                             <p><strong>Average qualifying position:</strong> {formatAverage(stats.avgQualifying)}</p>
                             <p><strong>Seasons raced:</strong> {stats.seasons}</p>
-                            {(pointsChart || constructorPointsChart || constructorWinsChart) && (
-                                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '1rem' }}>
-                                    {pointsChart && (
-                                        <div style={{ flex: '1 1 360px', minHeight: '320px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
-                                            <Line data={pointsChart.data} options={pointsChart.options} />
-                                        </div>
-                                    )}
+                            {(constructorPointsChart || constructorWinsChart || constructorRacesChart) && (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem', marginTop: '1rem' }}>
                                     {constructorWinsChart && (
-                                        <div style={{ flex: '1 1 360px', minHeight: '320px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                        <div style={{ minHeight: '280px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
                                             <Bar data={constructorWinsChart.data} options={constructorWinsChart.options} />
                                         </div>
                                     )}
                                     {constructorPointsChart && (
-                                        <div style={{ flex: '1 1 360px', minHeight: '320px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                        <div style={{ minHeight: '280px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
                                             <Bar data={constructorPointsChart.data} options={constructorPointsChart.options} />
+                                        </div>
+                                    )}
+                                    {constructorRacesChart && (
+                                        <div style={{ minHeight: '280px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                            <Bar data={constructorRacesChart.data} options={constructorRacesChart.options} />
                                         </div>
                                     )}
                                 </div>
                             )}
-                            <div style={{ marginTop: '0.5rem' }}>
-                                <strong>Points by season:</strong>
-                                <ul style={{ marginTop: '0.25rem' }}>
-                                    {Object.entries(stats.pointsBySeason)
-                                        .sort(([a], [b]) => Number(a) - Number(b))
-                                        .map(([season, pts]) => (
-                                            <li key={season}>{season}: {pts}</li>
-                                        ))}
-                                </ul>
-                            </div>
-                            <div style={{ marginTop: '0.75rem' }}>
-                                <strong>Performance by constructor:</strong>
-                                <ul style={{ marginTop: '0.25rem' }}>
-                                    {stats.constructorBreakdown.map((c) => (
-                                        <li key={c.constructorId}>
-                                            {c.name} — races: {c.races}, points: {c.points}, wins: {c.wins}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
+                            {pointsChart && (
+                                <div style={{ marginTop: '1rem', minHeight: '320px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                    <Line data={pointsChart.data} options={pointsChart.options} />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
