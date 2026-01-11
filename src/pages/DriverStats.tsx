@@ -1,5 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    BarElement,
+    Tooltip,
+    Legend,
+    Title,
+} from 'chart.js'
+import { Bar, Line } from 'react-chartjs-2'
 import { getChampionshipTitles } from '../data/championshipTitles'
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Title)
 
 type Driver = {
     driverId: string
@@ -384,6 +398,122 @@ const DriverStats = () => {
         return () => { cancelled = true }
     }, [selectedDriver])
 
+    const pointsChart = useMemo(() => {
+        if (!stats) return null
+        const labels = Object.keys(stats.pointsBySeason).sort((a, b) => Number(a) - Number(b))
+        if (labels.length === 0) return null
+
+        return {
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Points',
+                        data: labels.map((season) => stats.pointsBySeason[season] ?? 0),
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.18)',
+                        tension: 0.25,
+                        fill: true,
+                        pointRadius: 3,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' as const },
+                    title: { display: true, text: 'Points per season' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context: any) => `${context.formattedValue} pts`,
+                        },
+                    },
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { grid: { display: false } },
+                },
+            },
+        }
+    }, [stats])
+
+    const constructorPointsChart = useMemo(() => {
+        if (!stats || stats.constructorBreakdown.length === 0) return null
+        const labels = stats.constructorBreakdown.map((c) => c.name)
+        const points = stats.constructorBreakdown.map((c) => c.points)
+
+        return {
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Points',
+                        data: points,
+                        backgroundColor: 'rgba(56, 189, 248, 0.7)',
+                        borderColor: 'rgba(56, 189, 248, 1)',
+                        borderWidth: 1,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' as const },
+                    title: { display: true, text: 'Points by constructor' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context: any) => `${context.dataset.label}: ${context.formattedValue}`,
+                        },
+                    },
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { grid: { display: false } },
+                },
+            },
+        }
+    }, [stats])
+
+    const constructorWinsChart = useMemo(() => {
+        if (!stats || stats.constructorBreakdown.length === 0) return null
+        const labels = stats.constructorBreakdown.map((c) => c.name)
+        const wins = stats.constructorBreakdown.map((c) => c.wins)
+
+        return {
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Wins',
+                        data: wins,
+                        backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                        borderColor: 'rgba(34, 197, 94, 1)',
+                        borderWidth: 1,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' as const },
+                    title: { display: true, text: 'Wins by constructor' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context: any) => `${context.dataset.label}: ${context.formattedValue}`,
+                        },
+                    },
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { grid: { display: false } },
+                },
+            },
+        }
+    }, [stats])
+
     return (
         <div>
             <h2>Driver Stats</h2>
@@ -451,6 +581,25 @@ const DriverStats = () => {
                             </p>
                             <p><strong>Average qualifying position:</strong> {formatAverage(stats.avgQualifying)}</p>
                             <p><strong>Seasons raced:</strong> {stats.seasons}</p>
+                            {(pointsChart || constructorPointsChart || constructorWinsChart) && (
+                                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+                                    {pointsChart && (
+                                        <div style={{ flex: '1 1 360px', minHeight: '320px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                            <Line data={pointsChart.data} options={pointsChart.options} />
+                                        </div>
+                                    )}
+                                    {constructorWinsChart && (
+                                        <div style={{ flex: '1 1 360px', minHeight: '320px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                            <Bar data={constructorWinsChart.data} options={constructorWinsChart.options} />
+                                        </div>
+                                    )}
+                                    {constructorPointsChart && (
+                                        <div style={{ flex: '1 1 360px', minHeight: '320px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                            <Bar data={constructorPointsChart.data} options={constructorPointsChart.options} />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <div style={{ marginTop: '0.5rem' }}>
                                 <strong>Points by season:</strong>
                                 <ul style={{ marginTop: '0.25rem' }}>
