@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getConstructorTitles } from '../data/constructorTitles'
 
 type Constructor = {
     constructorId: string
@@ -239,6 +240,7 @@ const ConstructorStats = () => {
                 <div style={{ marginTop: '1rem', textAlign: 'left' }}>
                     <h3>{selectedConstructor.name}</h3>
                     <p><strong>Nationality:</strong> {selectedConstructor.nationality ?? 'N/A'}</p>
+                    <p><strong>World Championships:</strong> {getConstructorTitles(selectedConstructor.constructorId)}</p>
                     {metricsLoading && <p>Loading constructor stats…</p>}
                     {metricsError && <p style={{ color: 'red' }}>{metricsError}</p>}
                     {metrics && !metricsLoading && !metricsError && (
@@ -246,10 +248,10 @@ const ConstructorStats = () => {
                             <p><strong>Seasons raced:</strong> {metrics.seasons}</p>
                             <p><strong>First season:</strong> {metrics.firstSeason ?? 'N/A'}</p>
                             <p><strong>Total wins:</strong> {metrics.wins}</p>
-                            <p><strong>Drivers that raced for this team:</strong> {metrics.driverCount}</p>
                             {metrics.topDriverName && metrics.topDriverRaces > 0 && (
                                 <p><strong>Driver with most races for this team:</strong> {metrics.topDriverName} ({metrics.topDriverRaces} races)</p>
                             )}
+                            <p><strong>Total number of drivers that had raced for this team:</strong> {metrics.driverCount}</p>
                         </div>
                     )}
                 </div>
