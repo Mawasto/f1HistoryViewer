@@ -12,7 +12,7 @@ type Driver = {
 }
 
 const DRIVER_CACHE_KEY = 'allDrivers_cache_v3'
-const DRIVER_STATS_CACHE_PREFIX = 'driver_stats_cache_v3_'
+const DRIVER_STATS_CACHE_PREFIX = 'driver_stats_cache_v4_'
 const ACTIVE_STATUS_CACHE_PREFIX = 'active_driver_ids_'
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
@@ -114,6 +114,8 @@ type DriverCareerStats = {
     poles: number
     seasons: number
     totalPoints: number
+    avgFinish: number | null
+    avgQualifying: number | null
     pointsBySeason: Record<string, number>
     constructorBreakdown: ConstructorBreakdown[]
 }
@@ -178,6 +180,8 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
 
     const pointsBySeason: Record<string, number> = {}
     let wins = 0
+    let finishPosSum = 0
+    let finishPosCount = 0
     const constructorMap: Record<string, ConstructorBreakdown> = {}
 
     for (const race of resultsRaces) {
@@ -195,6 +199,12 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
             pointsBySeason[season] = (pointsBySeason[season] ?? 0) + pts
         }
         if (result.position === '1') wins++
+
+        const finishPos = Number(result.position)
+        if (Number.isFinite(finishPos)) {
+            finishPosSum += finishPos
+            finishPosCount += 1
+        }
 
         const cid = result?.Constructor?.constructorId ?? result?.Constructor?.name ?? 'unknown'
         const cname = result?.Constructor?.name ?? cid
@@ -224,10 +234,17 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
     }
 
     let poles = 0
+    let qualiPosSum = 0
+    let qualiPosCount = 0
     for (const race of qualifyingRaces) {
         const quali = Array.isArray(race?.QualifyingResults) ? race.QualifyingResults[0] : undefined
         if (!quali) continue
         if (quali.position === '1') poles++
+        const qualiPos = Number(quali.position)
+        if (Number.isFinite(qualiPos)) {
+            qualiPosSum += qualiPos
+            qualiPosCount += 1
+        }
     }
 
     const seasons = Object.keys(pointsBySeason).length
@@ -238,6 +255,8 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
         poles,
         seasons,
         totalPoints,
+        avgFinish: finishPosCount > 0 ? finishPosSum / finishPosCount : null,
+        avgQualifying: qualiPosCount > 0 ? qualiPosSum / qualiPosCount : null,
         pointsBySeason,
         constructorBreakdown: Object.values(constructorMap).sort((a, b) => {
             if (a.firstSeason !== b.firstSeason) return a.firstSeason - b.firstSeason
@@ -383,6 +402,8 @@ const CompareDrivers = () => {
         return Number.isFinite(year) && year < 1975
     }
 
+    const formatAverage = (value: number | null) => value === null ? 'N/A' : value.toFixed(2)
+
     const renderDriverBlock = (
         label: string,
         driver: Driver | undefined,
@@ -411,6 +432,7 @@ const CompareDrivers = () => {
                         <div style={{ marginTop: '0.75rem' }}>
                             <p><strong>Races started:</strong> {stats.racesStarted}</p>
                             <p><strong>Wins:</strong> {stats.wins}</p>
+                            <p><strong>Average race finishing position:</strong> {formatAverage(stats.avgFinish)}</p>
                             <p>
                                 <strong>Pole positions:</strong> {stats.poles}
                                 {isBornBefore1975(driver?.dateOfBirth) && (
@@ -423,6 +445,7 @@ const CompareDrivers = () => {
                                     </span>
                                 )}
                             </p>
+                            <p><strong>Average qualifying position:</strong> {formatAverage(stats.avgQualifying)}</p>
                             <p><strong>Seasons raced:</strong> {stats.seasons}</p>
                             <p><strong>Total points:</strong> {stats.totalPoints}</p>
                             <div style={{ marginTop: '0.75rem' }}>
