@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Tooltip,
+    Legend,
+    Title,
+} from 'chart.js'
+import { Bar } from 'react-chartjs-2'
 import { getConstructorTitles } from '../data/constructorTitles'
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, Title)
 
 type Constructor = {
     constructorId: string
@@ -9,7 +21,7 @@ type Constructor = {
 }
 
 const CONSTRUCTOR_CACHE_KEY = 'allConstructors_cache_v1'
-const CONSTRUCTOR_STATS_CACHE_PREFIX = 'constructor_stats_v1_'
+const CONSTRUCTOR_STATS_CACHE_PREFIX = 'constructor_stats_v2_'
 
 type ConstructorMetrics = {
     seasons: number
@@ -18,6 +30,7 @@ type ConstructorMetrics = {
     driverCount: number
     topDriverName: string | null
     topDriverRaces: number
+    driverRaceBreakdown: { driverId: string; name: string; races: number }[]
 }
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
@@ -140,6 +153,10 @@ async function fetchConstructorMetrics(constructorId: string): Promise<Construct
         }
     }
 
+    const driverRaceBreakdown = Object.entries(driverRaceCounts)
+        .map(([driverId, info]) => ({ driverId, name: info.name, races: info.count }))
+        .sort((a, b) => b.races - a.races)
+
     const metrics: ConstructorMetrics = {
         seasons: seasonSet.size,
         firstSeason,
@@ -147,6 +164,7 @@ async function fetchConstructorMetrics(constructorId: string): Promise<Construct
         driverCount: Object.keys(driverRaceCounts).length,
         topDriverName: topDriverId ? driverRaceCounts[topDriverId].name : null,
         topDriverRaces,
+        driverRaceBreakdown,
     }
 
     try { sessionStorage.setItem(cacheKey, JSON.stringify({ year: currentYear, metrics })) } catch {}
@@ -211,6 +229,52 @@ const ConstructorStats = () => {
         return () => { cancelled = true }
     }, [selectedConstructor])
 
+    const driverRaceChart = useMemo(() => {
+        if (!metrics || metrics.driverRaceBreakdown.length === 0) return null
+        const topDrivers = metrics.driverRaceBreakdown.slice(0, 20)
+        const labels = topDrivers.map((d) => d.name)
+        const dataPoints = topDrivers.map((d) => d.races)
+
+        return {
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Races',
+                        data: dataPoints,
+                        backgroundColor: 'rgba(56, 189, 248, 0.75)',
+                        borderColor: 'rgba(56, 189, 248, 1)',
+                        borderWidth: 1,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y' as const,
+                plugins: {
+                    legend: { position: 'bottom' as const },
+                    title: { display: true, text: 'Drivers by races for this constructor (top 20)' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context: any) => `${context.dataset.label}: ${context.formattedValue}`,
+                        },
+                    },
+                },
+                scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0 } },
+                    y: {
+                        grid: { display: false },
+                        ticks: {
+                            autoSkip: false,
+                            font: { size: 11 },
+                        },
+                    },
+                },
+            },
+        }
+    }, [metrics])
+
     return (
         <div>
             <h2>Constructor Stats</h2>
@@ -252,6 +316,11 @@ const ConstructorStats = () => {
                                 <p><strong>Driver with most races for this team:</strong> {metrics.topDriverName} ({metrics.topDriverRaces} races)</p>
                             )}
                             <p><strong>Total number of drivers that had raced for this team:</strong> {metrics.driverCount}</p>
+                            {driverRaceChart && (
+                                <div style={{ marginTop: '1rem', minHeight: '360px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                    <Bar data={driverRaceChart.data} options={driverRaceChart.options} />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
