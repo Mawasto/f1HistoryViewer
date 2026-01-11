@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import 'flag-icons/css/flag-icons.min.css'
+import { toFlagCode } from '../utils/countryFlag'
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -204,6 +206,8 @@ const ConstructorStats = () => {
         return constructors.find((c) => c.name.toLowerCase() === target)
     }, [constructors, selectedName])
 
+    const nationalityFlag = useMemo(() => toFlagCode(selectedConstructor?.nationality ?? null), [selectedConstructor?.nationality])
+
     useEffect(() => {
         if (!selectedConstructor) {
             setMetrics(null)
@@ -303,7 +307,11 @@ const ConstructorStats = () => {
             {selectedConstructor && (
                 <div style={{ marginTop: '1rem', textAlign: 'left' }}>
                     <h3>{selectedConstructor.name}</h3>
-                    <p><strong>Nationality:</strong> {selectedConstructor.nationality ?? 'N/A'}</p>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <strong style={{ marginRight: '2px' }}>Nationality:</strong>
+                        <span>{selectedConstructor.nationality ?? 'N/A'}</span>
+                        {nationalityFlag && <span className={`fi fi-${nationalityFlag}`} aria-label={`${selectedConstructor.nationality} flag`} />}
+                    </p>
                     <p><strong>World Championships:</strong> {getConstructorTitles(selectedConstructor.constructorId)}</p>
                     {metricsLoading && <p>Loading constructor stats…</p>}
                     {metricsError && <p style={{ color: 'red' }}>{metricsError}</p>}

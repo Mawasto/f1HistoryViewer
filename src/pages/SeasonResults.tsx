@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import 'flag-icons/css/flag-icons.min.css'
+import { toFlagCode } from '../utils/countryFlag'
 
 const MIN_YEAR = 1950
 const CURRENT_YEAR = new Date().getFullYear()
@@ -225,6 +227,16 @@ const SeasonResults = () => {
         load()
     }, [year])
 
+    // Build a compact descriptor for each round to reuse in both tables
+    const roundColumns = useMemo(() => (
+        seasonRaces.map(r => {
+            const country = r?.Circuit?.Location?.country ?? ''
+            const code = country ? country.trim().slice(0, 3).toUpperCase() : ''
+            const flag = toFlagCode(country)
+            return { round: r.round, code, flag, country }
+        })
+    ), [seasonRaces])
+
     // Build combined driver list (standings order first, then any drivers present in race results but not in standings)
     const driverRows = (() => {
         const standingsMap = Object.fromEntries(driverStandings.map((s: any) => [s.Driver.driverId, s]))
@@ -381,13 +393,14 @@ const SeasonResults = () => {
                                 <tr>
                                     <th>Position</th>
                                     <th>Driver</th>
-                                    {seasonRaces.map(r => {
-                                        const country = r?.Circuit?.Location?.country ?? ''
-                                        const code = country ? country.trim().slice(0, 3).toUpperCase() : ''
-                                        return (
-                                            <th key={r.round}>{r.round}{code ? ` • ${code}` : ''}</th>
-                                        )
-                                    })}
+                                    {roundColumns.map(col => (
+                                        <th key={col.round} style={{ verticalAlign: 'bottom', paddingBottom: '6px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                <span>{col.round}{col.code ? ` • ${col.code}` : ''}</span>
+                                                {col.flag && <span className={`fi fi-${col.flag}`} aria-label={`${col.country} flag`} />}
+                                            </div>
+                                        </th>
+                                    ))}
                                     <th>Points</th>
                                 </tr>
                             </thead>
@@ -414,13 +427,14 @@ const SeasonResults = () => {
                                 <tr>
                                     <th>Pos</th>
                                     <th>Constructor</th>
-                                    {seasonRaces.map(r => {
-                                        const country = r?.Circuit?.Location?.country ?? ''
-                                        const code = country ? country.trim().slice(0, 3).toUpperCase() : ''
-                                        return (
-                                            <th key={r.round}>{r.round}{code ? ` • ${code}` : ''}</th>
-                                        )
-                                    })}
+                                    {roundColumns.map(col => (
+                                        <th key={col.round} style={{ verticalAlign: 'bottom', paddingBottom: '6px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                <span>{col.round}{col.code ? ` • ${col.code}` : ''}</span>
+                                                {col.flag && <span className={`fi fi-${col.flag}`} aria-label={`${col.country} flag`} />}
+                                            </div>
+                                        </th>
+                                    ))}
                                     <th>Points</th>
                                 </tr>
                             </thead>

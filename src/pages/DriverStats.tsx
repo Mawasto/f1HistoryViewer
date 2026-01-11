@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import 'flag-icons/css/flag-icons.min.css'
+import { toFlagCode } from '../utils/countryFlag'
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -349,6 +351,8 @@ const DriverStats = () => {
         return drivers.find((d) => `${d.givenName} ${d.familyName}`.toLowerCase() === target)
     }, [drivers, selectedName])
 
+    const nationalityFlag = useMemo(() => toFlagCode(selectedDriver?.nationality ?? null), [selectedDriver?.nationality])
+
     useEffect(() => {
         const driverId = selectedDriver?.driverId
         if (!driverId) {
@@ -586,7 +590,13 @@ const DriverStats = () => {
                     <p><strong>Date of birth:</strong> {selectedDriver.dateOfBirth ?? 'N/A'}</p>
                     {selectedDriver.permanentNumber && <p><strong>Number:</strong> {selectedDriver.permanentNumber}</p>}
                     {selectedDriver.code && <p><strong>Code:</strong> {selectedDriver.code}</p>}
-                    {selectedDriver.nationality && <p><strong>Nationality:</strong> {selectedDriver.nationality}</p>}
+                    {selectedDriver.nationality && (
+                        <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <strong style={{ marginRight: '2px' }}>Nationality:</strong>
+                            <span>{selectedDriver.nationality}</span>
+                            {nationalityFlag && <span className={`fi fi-${nationalityFlag}`} aria-label={`${selectedDriver.nationality} flag`} />}
+                        </p>
+                    )}
                     <p><strong>World Championships:</strong> {getChampionshipTitles(selectedDriver.driverId)}</p>
 
                     {isActive !== null && !activeError && (
