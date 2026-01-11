@@ -226,6 +226,20 @@ const TrackStats = () => {
         [selectedCircuit?.Location?.country]
     )
 
+    const mapSrc = useMemo(() => {
+        const loc = selectedCircuit?.Location
+        if (!loc) return null
+        const { lat, long, locality, country } = loc
+        if (lat && long) {
+            return `https://www.google.com/maps?q=${lat},${long}&hl=en&z=12&output=embed`
+        }
+        const query = [locality, country].filter(Boolean).join(', ')
+        if (query) {
+            return `https://www.google.com/maps?q=${encodeURIComponent(query)}&hl=en&z=6&output=embed`
+        }
+        return null
+    }, [selectedCircuit?.Location])
+
     useEffect(() => {
         if (!selectedCircuit) {
             setRaceStats(null)
@@ -340,6 +354,20 @@ const TrackStats = () => {
                     {selectedCircuit.Location?.lat && selectedCircuit.Location?.long && (
                         <p><strong>Coordinates:</strong> {selectedCircuit.Location.lat}, {selectedCircuit.Location.long}</p>
                     )}
+                    {mapSrc && (
+                        <div style={{ marginTop: '0.5rem', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 8px 22px rgba(0,0,0,0.18)', maxWidth: '640px' }}>
+                            <iframe
+                                title="Circuit location map"
+                                src={mapSrc}
+                                width="100%"
+                                height="320"
+                                style={{ border: 0, display: 'block' }}
+                                loading="lazy"
+                                allowFullScreen
+                                referrerPolicy="no-referrer-when-downgrade"
+                            />
+                        </div>
+                    )}
                     {statsLoading && <p>Loading circuit race stats…</p>}
                     {statsError && <p style={{ color: 'red' }}>{statsError}</p>}
                     {raceStats && !statsLoading && !statsError && (
@@ -354,27 +382,6 @@ const TrackStats = () => {
                         {resultsError && <p style={{ color: 'red' }}>{resultsError}</p>}
                         {!resultsLoading && !resultsError && (
                             <>
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>Driver</th>
-                                            <th>Wins</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {topDrivers.length === 0 ? (
-                                            <tr><td colSpan={2}>No wins recorded</td></tr>
-                                        ) : (
-                                            topDrivers.map((d) => (
-                                                <tr key={d.driverId}>
-                                                    <td>{d.name}</td>
-                                                    <td>{d.wins}</td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-
                                 {topWinsChart && (
                                     <div style={{ marginTop: '1rem', minHeight: '260px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
                                         <Bar data={topWinsChart.data} options={topWinsChart.options} />
