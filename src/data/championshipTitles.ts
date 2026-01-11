@@ -28,7 +28,7 @@ export const CHAMPIONSHIP_TITLES: Record<string, number> = {
     button: 1,
     vettel: 4,
     rosberg: 1,
-    max_verstappen: 3,
+    max_verstappen: 4,
 }
 
 export const getChampionshipTitles = (driverId: string | undefined): number => {

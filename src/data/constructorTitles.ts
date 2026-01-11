@@ -7,7 +7,7 @@ export const CONSTRUCTOR_TITLES: Record<string, number> = {
   brabham: 2,
   matra: 1,
   tyrrell: 1,
-  mclaren: 9,
+  mclaren: 10,
   williams: 9,
   benetton: 1,
   renault: 2,
