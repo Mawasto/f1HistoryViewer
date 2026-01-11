@@ -1,4 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Bar } from 'react-chartjs-2'
+import {
+	Chart as ChartJS,
+	CategoryScale,
+	LinearScale,
+	BarElement,
+	Title,
+	Tooltip,
+	Legend,
+} from 'chart.js'
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const MIN_YEAR = 2011
 const MAX_YEAR = 2025
@@ -23,6 +35,9 @@ type DriverStopRank = {
 	stops: number
 	avgSeconds: number
 }
+
+const STOPS_COLOR = 'rgba(239, 68, 68, 0.8)'
+const AVG_COLOR = 'rgba(59, 130, 246, 0.8)'
 
 type DriverNameMap = Record<string, string>
 
@@ -80,6 +95,56 @@ const Pitstops = () => {
 	const [progress, setProgress] = useState<string>('')
 	const [driverRanking, setDriverRanking] = useState<DriverStopRank[]>([])
 	const [driverNames, setDriverNames] = useState<DriverNameMap>({})
+
+	const driverStopsChart = useMemo(() => {
+		if (!driverRanking.length) return null
+
+		const labels = driverRanking.map((row) => driverNames[row.driverId] ?? row.driverId)
+		const stopsData = driverRanking.map((row) => row.stops)
+		const avgData = driverRanking.map((row) => Number(row.avgSeconds.toFixed(3)))
+
+		return {
+			data: {
+				labels,
+				datasets: [
+					{
+						label: 'Pit stops',
+						data: stopsData,
+						backgroundColor: STOPS_COLOR,
+						yAxisID: 'yStops',
+						borderColor: 'rgba(239, 68, 68, 1)',
+						borderWidth: 1,
+					},
+					{
+						label: 'Avg time (s)',
+						data: avgData,
+						backgroundColor: AVG_COLOR,
+						yAxisID: 'yAvg',
+						borderColor: 'rgba(59, 130, 246, 1)',
+						borderWidth: 1,
+					},
+				],
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { position: 'bottom' as const },
+					title: { display: true, text: 'Driver pit stop counts (most → least)' },
+				},
+				scales: {
+					yStops: { beginAtZero: true, title: { display: true, text: 'Stops' }, position: 'left' },
+					yAvg: {
+						beginAtZero: true,
+						title: { display: true, text: 'Avg time (s)' },
+						position: 'right',
+						grid: { drawOnChartArea: false },
+					},
+					x: { grid: { display: false } },
+				},
+			},
+		}
+	}, [driverRanking, driverNames])
 
 	const getCachedStops = (season: string | number, round: string | number): any[] | null => {
 		const key = `pitstops_${season}_${round}`
@@ -314,16 +379,9 @@ const Pitstops = () => {
 							<div>{slowest.durationStr}s — {driverNames[slowest.driverId] ?? slowest.driverId} — Season {slowest.season}, Round {slowest.round} ({slowest.raceName}), Lap {slowest.lap}, Stop {slowest.stop}</div>
 						</div>
 					)}
-					{driverRanking.length > 0 && (
-						<div style={{ border: '1px solid #000', borderRadius: '8px', padding: '0.75rem' }}>
-							<div style={{ fontWeight: 600, marginBottom: '0.35rem' }}>Driver pit stop counts (most → least)</div>
-							<ol style={{ margin: 0, paddingLeft: '1.2rem' }}>
-									{driverRanking.map((row) => (
-										<li key={row.driverId} style={{ marginBottom: '0.25rem' }}>
-											<span style={{ fontWeight: 600 }}>{driverNames[row.driverId] ?? row.driverId}</span>: {row.stops} stops, avg {row.avgSeconds.toFixed(3)}s
-										</li>
-									))}
-							</ol>
+					{driverStopsChart && (
+						<div style={{ border: '1px solid #000', borderRadius: '8px', padding: '0.75rem', minHeight: '360px' }}>
+							<Bar data={driverStopsChart.data} options={driverStopsChart.options} />
 						</div>
 					)}
 				</div>
