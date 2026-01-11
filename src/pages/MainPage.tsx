@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import 'flag-icons/css/flag-icons.min.css'
+import { toFlagCode } from '../utils/countryFlag'
 
 interface RaceResult {
     position: string;
@@ -21,6 +23,7 @@ interface RaceResult {
     laps?: string;
     points: string;
 }
+
 
 const MainPage = () => {
     const [results, setResults] = useState<RaceResult[]>([])
@@ -237,12 +240,19 @@ const MainPage = () => {
         return Object.values(map).sort((a, b) => b.points - a.points)
     })()
 
+    const placeFlagCode = toFlagCode(country)
+
     return (
         <div>
             <h2>{raceName}</h2>
             {lastDate && <p>Date: {lastDate}</p>}
             {circuitName && <p>Track: {circuitName}</p>}
-            {(locality || country) && <p>Place: {locality ?? ''}{locality && country ? ', ' : ''}{country ?? ''}</p>}
+            {(locality || country) && (
+                <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>Place: {locality ?? ''}{locality && country ? ', ' : ''}{country ?? ''}</span>
+                    {placeFlagCode && <span className={`fi fi-${placeFlagCode}`} aria-label={`${country ?? ''} flag`} />}
+                </p>
+            )}
             {loading ? (
                 <p>Loading...</p>
             ) : error ? (

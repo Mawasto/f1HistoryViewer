@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import 'flag-icons/css/flag-icons.min.css'
+import { toFlagCode } from '../utils/countryFlag'
 
 type Race = {
     round: string
@@ -125,7 +127,17 @@ const SeasonCalendar = () => {
                                         <td>{r.round}</td>
                                         <td>{r.raceName ?? 'Race'}</td>
                                         <td>{r.Circuit?.circuitName ?? 'Unknown'}</td>
-                                        <td>{[r.Circuit?.Location?.locality, r.Circuit?.Location?.country].filter(Boolean).join(', ')}</td>
+                                        <td>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                {toFlagCode(r.Circuit?.Location?.country ?? null) && (
+                                                    <span
+                                                        className={`fi fi-${toFlagCode(r.Circuit?.Location?.country ?? null)}`}
+                                                        aria-label={`${r.Circuit?.Location?.country ?? ''} flag`}
+                                                    />
+                                                )}
+                                                <span>{[r.Circuit?.Location?.locality, r.Circuit?.Location?.country].filter(Boolean).join(', ')}</span>
+                                            </span>
+                                        </td>
                                         <td>{formatWeekendRange(r)}</td>
                                     </tr>
                                 ))

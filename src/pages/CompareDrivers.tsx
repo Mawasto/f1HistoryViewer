@@ -12,6 +12,8 @@ import {
 } from 'chart.js'
 import { Bar, Line } from 'react-chartjs-2'
 import { getChampionshipTitles } from '../data/championshipTitles'
+import 'flag-icons/css/flag-icons.min.css'
+import { toFlagCode } from '../utils/countryFlag'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Title)
 
@@ -673,26 +675,35 @@ const CompareDrivers = () => {
         statsError: string,
         isActive: boolean | null,
         activeConstructor: string
-    ) => (
-        <div style={{ flex: 1, minWidth: '320px' }}>
-            {driver ? (
-                <>
-                    <h4>{driver.givenName} {driver.familyName}</h4>
-                    <p><strong>Date of birth:</strong> {driver.dateOfBirth ?? 'N/A'}</p>
-                    {driver.permanentNumber && <p><strong>Number:</strong> {driver.permanentNumber}</p>}
-                    {driver.code && <p><strong>Code:</strong> {driver.code}</p>}
-                    {driver.nationality && <p><strong>Nationality:</strong> {driver.nationality}</p>}
-                    {isActive !== null && !activeError && <p><strong>Status:</strong> {isActive ? 'Active' : 'Retired'}</p>}
-                    {isActive && activeConstructor && <p><strong>Constructor:</strong> {activeConstructor}</p>}
-                    {activeError && <p style={{ color: 'red' }}>{activeError}</p>}
-                    {statsLoading && <p>Loading career stats…</p>}
-                    {statsError && <p style={{ color: 'red' }}>{statsError}</p>}
-                </>
-            ) : (
-                <p>Select a driver to view details.</p>
-            )}
-        </div>
-    )
+    ) => {
+        const nationalityFlag = toFlagCode(driver?.nationality ?? null)
+        return (
+            <div style={{ flex: 1, minWidth: '320px' }}>
+                {driver ? (
+                    <>
+                        <h4>{driver.givenName} {driver.familyName}</h4>
+                        <p><strong>Date of birth:</strong> {driver.dateOfBirth ?? 'N/A'}</p>
+                        {driver.permanentNumber && <p><strong>Number:</strong> {driver.permanentNumber}</p>}
+                        {driver.code && <p><strong>Code:</strong> {driver.code}</p>}
+                        {driver.nationality && (
+                            <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <strong style={{ marginRight: '2px' }}>Nationality:</strong>
+                                <span>{driver.nationality}</span>
+                                {nationalityFlag && <span className={`fi fi-${nationalityFlag}`} aria-label={`${driver.nationality} flag`} />}
+                            </p>
+                        )}
+                        {isActive !== null && !activeError && <p><strong>Status:</strong> {isActive ? 'Active' : 'Retired'}</p>}
+                        {isActive && activeConstructor && <p><strong>Constructor:</strong> {activeConstructor}</p>}
+                        {activeError && <p style={{ color: 'red' }}>{activeError}</p>}
+                        {statsLoading && <p>Loading career stats…</p>}
+                        {statsError && <p style={{ color: 'red' }}>{statsError}</p>}
+                    </>
+                ) : (
+                    <p>Select a driver to view details.</p>
+                )}
+            </div>
+        )
+    }
 
     return (
         <div>

@@ -133,11 +133,17 @@ const Pitstops = () => {
 					title: { display: true, text: 'Driver pit stop counts (most → least)' },
 				},
 				scales: {
-					yStops: { beginAtZero: true, title: { display: true, text: 'Stops' }, position: 'left' },
+					yStops: {
+						type: 'linear' as const,
+						position: 'left' as const,
+						beginAtZero: true,
+						title: { display: true, text: 'Stops' },
+					},
 					yAvg: {
+						type: 'linear' as const,
+						position: 'right' as const,
 						beginAtZero: true,
 						title: { display: true, text: 'Avg time (s)' },
-						position: 'right',
 						grid: { drawOnChartArea: false },
 					},
 					x: { grid: { display: false } },
