@@ -586,13 +586,13 @@ const DriverStats = () => {
             </div>
 
             {selectedDriver && (
-                <div style={{ marginTop: '1rem', textAlign: 'left' }}>
+                <div style={{ marginTop: '1rem', textAlign: 'center' }}>
                     <h3>{selectedDriver.givenName} {selectedDriver.familyName}</h3>
                     <p><strong>Date of birth:</strong> {selectedDriver.dateOfBirth ?? 'N/A'}</p>
                     {selectedDriver.permanentNumber && <p><strong>Number:</strong> {selectedDriver.permanentNumber}</p>}
                     {selectedDriver.code && <p><strong>Code:</strong> {selectedDriver.code}</p>}
                     {selectedDriver.nationality && (
-                        <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <p style={{ alignItems: 'center', gap: '0.5rem' }}>
                             <strong style={{ marginRight: '2px' }}>Nationality:</strong>
                             <span>{selectedDriver.nationality}</span>
                             {nationalityFlag && <span className={`fi fi-${nationalityFlag}`} aria-label={`${selectedDriver.nationality} flag`} />}
