@@ -86,6 +86,7 @@ export const COUNTRY_CODE_OVERRIDES: Record<string, string> = {
     czech: 'cz',
     uruguayan: 'uy',
     'new zealander': 'nz',
+    turkey: 'tr',
 }
 
 export const toFlagCode = (countryName: string | null): string | null => {

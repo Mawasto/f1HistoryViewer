@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -148,6 +149,7 @@ async function fetchCircuitResults(circuitId: string): Promise<any[]> {
 
 const TrackStats = () => {
     const [circuits, setCircuits] = useState<Circuit[]>([])
+    const [searchParams] = useSearchParams()
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [selectedName, setSelectedName] = useState('')
@@ -225,6 +227,13 @@ const TrackStats = () => {
         () => toFlagCode(selectedCircuit?.Location?.country ?? null),
         [selectedCircuit?.Location?.country]
     )
+
+    useEffect(() => {
+        const circuitParam = searchParams.get('circuit')
+        if (circuitParam) {
+            setSelectedName(circuitParam)
+        }
+    }, [searchParams])
 
     const mapSrc = useMemo(() => {
         const loc = selectedCircuit?.Location

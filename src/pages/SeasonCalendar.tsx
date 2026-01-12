@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
 
@@ -126,7 +127,21 @@ const SeasonCalendar = () => {
                                     <tr key={r.round}>
                                         <td>{r.round}</td>
                                         <td>{r.raceName ?? 'Race'}</td>
-                                        <td>{r.Circuit?.circuitName ?? 'Unknown'}</td>
+                                        <td>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                {r.Circuit?.circuitName && (
+                                                    <Link
+                                                        to={`/track-stats?circuit=${encodeURIComponent(r.Circuit.circuitName)}`}
+                                                        title="View track stats"
+                                                        aria-label={`View track stats for ${r.Circuit.circuitName}`}
+                                                        style={{ fontSize: '0.95rem', textDecoration: 'none' }}
+                                                    >
+                                                        🔍
+                                                    </Link>
+                                                )}
+                                                <span>{r.Circuit?.circuitName ?? 'Unknown'}</span>
+                                            </span>
+                                        </td>
                                         <td>
                                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 {toFlagCode(r.Circuit?.Location?.country ?? null) && (
