@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
+import '../styles/MainPage.css'
 
 const MIN_YEAR = 1950
 const CURRENT_YEAR = new Date().getFullYear()
@@ -332,7 +333,7 @@ const SeasonResults = () => {
     })()
 
     return (
-        <div>
+        <div className="dashboard-page">
             <h2>Results from Season</h2>
 
             <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
@@ -341,7 +342,16 @@ const SeasonResults = () => {
                     <select
                         value={year}
                         onChange={(e) => setYear(Number(e.target.value))}
-                        style={{ marginLeft: '0.5rem', width: '120px' }}
+                        style={{
+                            marginLeft: '0.5rem',
+                            width: '140px',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            border: '1px solid #0f172a',
+                            background: '#0b0f1a',
+                            color: '#f8fafc',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+                        }}
                     >
                         {Array.from({ length: CURRENT_YEAR - MIN_YEAR + 1 }, (_, i) => MIN_YEAR + i).map(y => (
                             <option key={y} value={y} disabled={y === DISABLED_YEAR}>{y}{y === DISABLED_YEAR ? ' (unavailable)' : ''}</option>
@@ -388,74 +398,77 @@ const SeasonResults = () => {
 
                     <div style={{ overflowX: 'auto', display: 'block', maxWidth: '100vw' }}>
                         <h3>Driver results by round ({year})</h3>
-                        <table style={{ width: 'max-content', whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr>
-                                    <th>Position</th>
-                                    <th>Driver</th>
-                                    {roundColumns.map(col => (
-                                        <th key={col.round} style={{ verticalAlign: 'bottom', paddingBottom: '6px' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                                <span>{col.round}{col.code ? ` • ${col.code}` : ''}</span>
-                                                {col.flag && <span className={`fi fi-${col.flag}`} aria-label={`${col.country} flag`} />}
-                                            </div>
-                                        </th>
-                                    ))}
-                                    <th>Points</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {driverRows.map((row) => (
-                                    <tr key={row.driverId}>
-                                        <td style={{ whiteSpace: 'nowrap' }}>{row.seasonPos}</td>
-                                        <td style={{ textAlign: 'left' }}>{row.driverInfo.givenName} {row.driverInfo.familyName}</td>
-                                        {row.perRace.map((p: string, i: number) => (
-                                            <td key={i} style={{ whiteSpace: 'nowrap' }}>{p}</td>
-                                        ))}
-                                        <td style={{ whiteSpace: 'nowrap' }}>{row.seasonPoints}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                        <div className="table-wrap">
+                            <table className="data-table data-table--hover" style={{ width: 'max-content', whiteSpace: 'nowrap' }}>
+                                 <thead>
+                                     <tr>
+                                         <th>Position</th>
+                                         <th>Driver</th>
+                                         {roundColumns.map(col => (
+                                             <th key={col.round} style={{ verticalAlign: 'bottom', paddingBottom: '6px' }}>
+                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                     <span>{col.round}{col.code ? ` • ${col.code}` : ''}</span>
+                                                     {col.flag && <span className={`fi fi-${col.flag}`} aria-label={`${col.country} flag`} />}
+                                                 </div>
+                                             </th>
+                                         ))}
+                                         <th>Points</th>
+                                     </tr>
+                                 </thead>
+                                 <tbody>
+                                     {driverRows.map((row) => (
+                                         <tr key={row.driverId}>
+                                             <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPos}</td>
+                                             <td style={{ textAlign: 'left' }}>{row.driverInfo.givenName} {row.driverInfo.familyName}</td>
+                                             {row.perRace.map((p: string, i: number) => (
+                                                 <td key={i} style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{p}</td>
+                                             ))}
+                                             <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPoints}</td>
+                                         </tr>
+                                     ))}
+                                 </tbody>
+                            </table>
+                        </div>
+                     </div>
 
-                    {/* constructors results by round */}
                     <div style={{ marginTop: '1rem', overflowX: 'auto', display: 'block', maxWidth: '100vw' }}>
-                        <h3>Constructor results by round ({year})</h3>
-                        <table style={{ width: 'max-content', whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr>
-                                    <th>Pos</th>
-                                    <th>Constructor</th>
-                                    {roundColumns.map(col => (
-                                        <th key={col.round} style={{ verticalAlign: 'bottom', paddingBottom: '6px' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                                <span>{col.round}{col.code ? ` • ${col.code}` : ''}</span>
-                                                {col.flag && <span className={`fi fi-${col.flag}`} aria-label={`${col.country} flag`} />}
-                                            </div>
-                                        </th>
-                                    ))}
-                                    <th>Points</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {constructorRows.map((row: any) => (
-                                    <tr key={row.constructorId}>
-                                        <td style={{ whiteSpace: 'nowrap' }}>{row.seasonPos}</td>
-                                        <td style={{ textAlign: 'left' }}>{row.constructorInfo.name ?? row.constructorInfo.constructorId}</td>
-                                        {row.perRace.map((p: string, i: number) => (
-                                            <td key={i} style={{ whiteSpace: 'nowrap' }}>{p}</td>
-                                        ))}
-                                        <td style={{ whiteSpace: 'nowrap' }}>{row.seasonPoints}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </>
-            )}
-        </div>
-    )
-}
+                        <h3>Constructor points by round ({year})</h3>
+                        <div className="table-wrap">
+                            <table className="data-table data-table--hover" style={{ width: 'max-content', whiteSpace: 'nowrap' }}>
+                                 <thead>
+                                     <tr>
+                                         <th>Pos</th>
+                                         <th>Constructor</th>
+                                         {roundColumns.map(col => (
+                                             <th key={col.round} style={{ verticalAlign: 'bottom', paddingBottom: '6px' }}>
+                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                     <span>{col.round}{col.code ? ` • ${col.code}` : ''}</span>
+                                                     {col.flag && <span className={`fi fi-${col.flag}`} aria-label={`${col.country} flag`} />}
+                                                 </div>
+                                             </th>
+                                         ))}
+                                         <th>Points</th>
+                                     </tr>
+                                 </thead>
+                                 <tbody>
+                                     {constructorRows.map((row: any) => (
+                                         <tr key={row.constructorId}>
+                                             <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPos}</td>
+                                             <td style={{ textAlign: 'left' }}>{row.constructorInfo.name ?? row.constructorInfo.constructorId}</td>
+                                             {row.perRace.map((p: string, i: number) => (
+                                                 <td key={i} style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{p}</td>
+                                             ))}
+                                             <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPoints}</td>
+                                         </tr>
+                                     ))}
+                                 </tbody>
+                            </table>
+                        </div>
+                     </div>
+                 </>
+             )}
+         </div>
+     )
+ }
 
 export default SeasonResults

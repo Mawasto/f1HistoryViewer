@@ -12,6 +12,7 @@ import {
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import { getConstructorTitles } from '../data/constructorTitles'
+import '../styles/MainPage.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, Title)
 
@@ -280,7 +281,7 @@ const ConstructorStats = () => {
     }, [metrics])
 
     return (
-        <div>
+        <div className="dashboard-page">
             <h2>Constructor Stats</h2>
             {loading && <p>Loading constructor list…</p>}
             {error && <p style={{ color: 'red' }}>{error}</p>}

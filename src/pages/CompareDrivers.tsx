@@ -14,6 +14,7 @@ import { Bar, Line } from 'react-chartjs-2'
 import { getChampionshipTitles } from '../data/championshipTitles'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
+import '../styles/MainPage.css'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Title)
 
@@ -678,7 +679,7 @@ const CompareDrivers = () => {
     ) => {
         const nationalityFlag = toFlagCode(driver?.nationality ?? null)
         return (
-            <div style={{ flex: 1, minWidth: '320px' }}>
+            <div style={{ flex: 1, minWidth: '320px', textAlign: 'center' }}>
                 {driver ? (
                     <>
                         <h4>{driver.givenName} {driver.familyName}</h4>
@@ -686,7 +687,7 @@ const CompareDrivers = () => {
                         {driver.permanentNumber && <p><strong>Number:</strong> {driver.permanentNumber}</p>}
                         {driver.code && <p><strong>Code:</strong> {driver.code}</p>}
                         {driver.nationality && (
-                            <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <p style={{alignItems: 'left', gap: '0.5rem' }}>
                                 <strong style={{ marginRight: '2px' }}>Nationality:</strong>
                                 <span>{driver.nationality}</span>
                                 {nationalityFlag && <span className={`fi fi-${nationalityFlag}`} aria-label={`${driver.nationality} flag`} />}
@@ -706,12 +707,12 @@ const CompareDrivers = () => {
     }
 
     return (
-        <div>
+        <div className="dashboard-page" style={{ textAlign: 'center' }}>
             <h2>Compare Drivers</h2>
             {loading && <p>Loading driver list…</p>}
             {error && <p style={{ color: 'red' }}>{error}</p>}
 
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '1rem', justifyContent: 'center', alignItems: 'center' }}>
                 <div>
                     <label htmlFor="driver-a-input" style={{ fontWeight: 600 }}>Driver A:</label>
                     <input
@@ -720,7 +721,7 @@ const CompareDrivers = () => {
                         value={nameA}
                         onChange={(e) => setNameA(e.target.value)}
                         placeholder="Start typing a driver name"
-                        style={{ marginLeft: '0.5rem', minWidth: '240px', padding: '6px' }}
+                        style={{ marginLeft: '0.5rem', minWidth: '240px', padding: '6px', textAlign: 'center' }}
                     />
                 </div>
                 <div>
@@ -731,7 +732,7 @@ const CompareDrivers = () => {
                         value={nameB}
                         onChange={(e) => setNameB(e.target.value)}
                         placeholder="Start typing a driver name"
-                        style={{ marginLeft: '0.5rem', minWidth: '240px', padding: '6px' }}
+                        style={{ marginLeft: '0.5rem', minWidth: '240px', padding: '6px', textAlign: 'center' }}
                     />
                 </div>
                 <datalist id="driver-options">
@@ -746,7 +747,7 @@ const CompareDrivers = () => {
 
             {ready ? (
                 <>
-                    <div style={{ marginTop: '1rem', display: 'flex', gap: '1.25rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <div style={{ marginTop: '1rem', display: 'flex', gap: '1.25rem', alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'center', textAlign: 'center' }}>
                         {renderDriverBlock(selectedA, statsLoadingA, statsErrorA, isActiveA, activeConstructorA)}
                         {renderDriverBlock(selectedB, statsLoadingB, statsErrorB, isActiveB, activeConstructorB)}
                     </div>

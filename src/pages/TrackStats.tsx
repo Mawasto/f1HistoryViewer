@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -11,6 +12,7 @@ import {
 import { Bar } from 'react-chartjs-2'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
+import '../styles/MainPage.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, Title)
 
@@ -148,6 +150,7 @@ async function fetchCircuitResults(circuitId: string): Promise<any[]> {
 
 const TrackStats = () => {
     const [circuits, setCircuits] = useState<Circuit[]>([])
+    const [searchParams] = useSearchParams()
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [selectedName, setSelectedName] = useState('')
@@ -225,6 +228,13 @@ const TrackStats = () => {
         () => toFlagCode(selectedCircuit?.Location?.country ?? null),
         [selectedCircuit?.Location?.country]
     )
+
+    useEffect(() => {
+        const circuitParam = searchParams.get('circuit')
+        if (circuitParam) {
+            setSelectedName(circuitParam)
+        }
+    }, [searchParams])
 
     const mapSrc = useMemo(() => {
         const loc = selectedCircuit?.Location
@@ -317,7 +327,7 @@ const TrackStats = () => {
     }, [selectedCircuit])
 
     return (
-        <div>
+        <div className="dashboard-page">
             <h2>Track Stats</h2>
             {loading && <p>Loading circuit list…</p>}
             {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -394,28 +404,30 @@ const TrackStats = () => {
                         <div style={{ marginTop: '1rem' }}>
                             <h4>Last race held here ({lastRaceResults.season ?? ''}{lastRaceResults.date ? ` – ${lastRaceResults.date}` : ''})</h4>
                             <p style={{ marginTop: '-0.25rem' }}>{lastRaceResults.raceName}</p>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Pos</th>
-                                        <th>Driver</th>
-                                        <th>Constructor</th>
-                                        <th>Time / Status</th>
-                                        <th>Points</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {lastRaceResults.results.map((res: any, idx: number) => (
-                                        <tr key={idx}>
-                                            <td>{res.position}</td>
-                                            <td>{`${res.Driver?.givenName ?? ''} ${res.Driver?.familyName ?? ''}`.trim()}</td>
-                                            <td>{res.Constructor?.name ?? res.Constructor?.constructorId ?? ''}</td>
-                                            <td>{res.Time?.time ?? res.status ?? ''}</td>
-                                            <td>{res.points}</td>
+                            <div className="table-wrap" style={{ marginTop: '0.35rem' }}>
+                                <table className="data-table data-table--hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Pos</th>
+                                            <th>Driver</th>
+                                            <th>Constructor</th>
+                                            <th>Time / Status</th>
+                                            <th>Points</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {lastRaceResults.results.map((res: any, idx: number) => (
+                                            <tr key={idx}>
+                                                <td>{res.position}</td>
+                                                <td>{`${res.Driver?.givenName ?? ''} ${res.Driver?.familyName ?? ''}`.trim()}</td>
+                                                <td>{res.Constructor?.name ?? res.Constructor?.constructorId ?? ''}</td>
+                                                <td>{res.Time?.time ?? res.status ?? ''}</td>
+                                                <td>{res.points}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
                 </div>
