@@ -14,6 +14,7 @@ import {
 } from 'chart.js'
 import { Bar, Line } from 'react-chartjs-2'
 import { getChampionshipTitles } from '../data/championshipTitles'
+import '../styles/MainPage.css'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Title)
 
@@ -557,7 +558,7 @@ const DriverStats = () => {
     }, [stats])
 
     return (
-        <div>
+        <div className="dashboard-page">
             <h2>Driver Stats</h2>
             {loading && <p>Loading driver list…</p>}
             {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -612,22 +613,6 @@ const DriverStats = () => {
 
                     {stats && !statsLoading && !statsError && (
                         <div style={{ marginTop: '0.75rem' }}>
-                            <p><strong>Races started:</strong> {stats.racesStarted}</p>
-                            <p><strong>Wins:</strong> {stats.wins}</p>
-                            <p><strong>Average race finishing position:</strong> {formatAverage(stats.avgFinish)}</p>
-                            <p>
-                                <strong>Pole positions:</strong> {stats.poles}
-                                {isBornBefore1975(selectedDriver?.dateOfBirth) && (
-                                    <span
-                                        title={POLE_WARNING}
-                                        aria-label={POLE_WARNING}
-                                        style={{ marginLeft: '6px', cursor: 'help' }}
-                                    >
-                                        ⓘ
-                                    </span>
-                                )}
-                            </p>
-                            <p><strong>Average qualifying position:</strong> {formatAverage(stats.avgQualifying)}</p>
                             <p><strong>Seasons raced:</strong> {stats.seasons}</p>
                             {(constructorPointsChart || constructorWinsChart || constructorRacesChart) && (
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem', marginTop: '1rem' }}>

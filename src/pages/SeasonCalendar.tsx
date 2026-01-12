@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
+import '../styles/MainPage.css'
 
 type Race = {
     round: string
@@ -88,7 +89,7 @@ const SeasonCalendar = () => {
     }
 
     return (
-        <div>
+        <div className="dashboard-page">
             <h2>Season Calendar</h2>
             <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <label>

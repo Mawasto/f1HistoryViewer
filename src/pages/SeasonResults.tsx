@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
+import '../styles/MainPage.css'
 
 const MIN_YEAR = 1950
 const CURRENT_YEAR = new Date().getFullYear()
@@ -332,7 +333,7 @@ const SeasonResults = () => {
     })()
 
     return (
-        <div>
+        <div className="dashboard-page">
             <h2>Results from Season</h2>
 
             <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>

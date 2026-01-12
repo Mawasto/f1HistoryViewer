@@ -12,6 +12,7 @@ import {
 import { Bar } from 'react-chartjs-2'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
+import '../styles/MainPage.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, Title)
 
@@ -326,7 +327,7 @@ const TrackStats = () => {
     }, [selectedCircuit])
 
     return (
-        <div>
+        <div className="dashboard-page">
             <h2>Track Stats</h2>
             {loading && <p>Loading circuit list…</p>}
             {error && <p style={{ color: 'red' }}>{error}</p>}

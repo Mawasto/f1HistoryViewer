@@ -9,6 +9,7 @@ import {
 	Tooltip,
 	Legend,
 } from 'chart.js'
+import '../styles/MainPage.css'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
@@ -342,7 +343,7 @@ const Pitstops = () => {
 	}, [fromYear, toYear])
 
 	return (
-		<div className="placeholder">
+		<div className="dashboard-page">
 			<h2>Pitstops</h2>
 			<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
 				<label>

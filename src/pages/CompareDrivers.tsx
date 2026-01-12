@@ -14,6 +14,7 @@ import { Bar, Line } from 'react-chartjs-2'
 import { getChampionshipTitles } from '../data/championshipTitles'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
+import '../styles/MainPage.css'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Title)
 
@@ -706,7 +707,7 @@ const CompareDrivers = () => {
     }
 
     return (
-        <div>
+        <div className="dashboard-page">
             <h2>Compare Drivers</h2>
             {loading && <p>Loading driver list…</p>}
             {error && <p style={{ color: 'red' }}>{error}</p>}
