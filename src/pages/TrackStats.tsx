@@ -404,28 +404,30 @@ const TrackStats = () => {
                         <div style={{ marginTop: '1rem' }}>
                             <h4>Last race held here ({lastRaceResults.season ?? ''}{lastRaceResults.date ? ` – ${lastRaceResults.date}` : ''})</h4>
                             <p style={{ marginTop: '-0.25rem' }}>{lastRaceResults.raceName}</p>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Pos</th>
-                                        <th>Driver</th>
-                                        <th>Constructor</th>
-                                        <th>Time / Status</th>
-                                        <th>Points</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {lastRaceResults.results.map((res: any, idx: number) => (
-                                        <tr key={idx}>
-                                            <td>{res.position}</td>
-                                            <td>{`${res.Driver?.givenName ?? ''} ${res.Driver?.familyName ?? ''}`.trim()}</td>
-                                            <td>{res.Constructor?.name ?? res.Constructor?.constructorId ?? ''}</td>
-                                            <td>{res.Time?.time ?? res.status ?? ''}</td>
-                                            <td>{res.points}</td>
+                            <div className="table-wrap" style={{ marginTop: '0.35rem' }}>
+                                <table className="data-table data-table--hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Pos</th>
+                                            <th>Driver</th>
+                                            <th>Constructor</th>
+                                            <th>Time / Status</th>
+                                            <th>Points</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {lastRaceResults.results.map((res: any, idx: number) => (
+                                            <tr key={idx}>
+                                                <td>{res.position}</td>
+                                                <td>{`${res.Driver?.givenName ?? ''} ${res.Driver?.familyName ?? ''}`.trim()}</td>
+                                                <td>{res.Constructor?.name ?? res.Constructor?.constructorId ?? ''}</td>
+                                                <td>{res.Time?.time ?? res.status ?? ''}</td>
+                                                <td>{res.points}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
                 </div>
