@@ -15,6 +15,8 @@ import { getChampionshipTitles } from '../data/championshipTitles'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
 import '../styles/MainPage.css'
+import { useStringParam, useRecordSearch } from '../utils/useSearchParamsSync'
+import RecentSearches from '../components/RecentSearches'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Title)
 
@@ -295,8 +297,8 @@ const CompareDrivers = () => {
     const [drivers, setDrivers] = useState<Driver[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
-    const [nameA, setNameA] = useState('')
-    const [nameB, setNameB] = useState('')
+    const [nameA, setNameA] = useStringParam('driverA')
+    const [nameB, setNameB] = useStringParam('driverB')
     const [statsA, setStatsA] = useState<DriverCareerStats | null>(null)
     const [statsB, setStatsB] = useState<DriverCareerStats | null>(null)
     const [statsLoadingA, setStatsLoadingA] = useState(false)
@@ -414,6 +416,14 @@ const CompareDrivers = () => {
         })()
         return () => { cancelled = true }
     }, [selectedA, selectedB])
+
+    // Record search when both drivers are selected and stats load
+    useRecordSearch({
+        type: 'compare-drivers',
+        label: `${selectedA?.familyName ?? ''} vs ${selectedB?.familyName ?? ''}`,
+        path: `/compare-drivers?driverA=${encodeURIComponent(nameA)}&driverB=${encodeURIComponent(nameB)}`,
+        condition: !!selectedA && !!selectedB && !!statsA && !!statsB && !statsLoadingA && !statsLoadingB,
+    })
 
     const ready = selectedA && selectedB
 
@@ -802,6 +812,7 @@ const CompareDrivers = () => {
             ) : (
                 <p style={{ marginTop: '1rem' }}>Select both drivers to compare.</p>
             )}
+            <RecentSearches />
         </div>
     )
 }

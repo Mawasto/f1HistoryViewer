@@ -10,6 +10,8 @@ import {
 	Legend,
 } from 'chart.js'
 import '../styles/MainPage.css'
+import { useNumberParam, useRecordSearch } from '../utils/useSearchParamsSync'
+import RecentSearches from '../components/RecentSearches'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
@@ -85,8 +87,8 @@ const durationToSeconds = (duration: string | undefined): number | null => {
 
 const Pitstops = () => {
 	const years = useMemo(() => Array.from({ length: MAX_YEAR - MIN_YEAR + 1 }, (_, i) => MIN_YEAR + i), [])
-	const [fromYear, setFromYear] = useState<number>(MIN_YEAR)
-	const [toYear, setToYear] = useState<number>(MAX_YEAR)
+	const [fromYear, setFromYear] = useNumberParam('from', MIN_YEAR)
+	const [toYear, setToYear] = useNumberParam('to', MAX_YEAR)
 	const [loading, setLoading] = useState(false)
 	const [error, setError] = useState('')
 	const [fastest, setFastest] = useState<PitStopStat | null>(null)
@@ -342,6 +344,14 @@ const Pitstops = () => {
 		return () => { cancelled = true }
 	}, [fromYear, toYear])
 
+	// Record search when pitstop stats finish loading
+	useRecordSearch({
+		type: 'pitstops',
+		label: `Pitstops ${fromYear}–${toYear}`,
+		path: `/pitstops?from=${fromYear}&to=${toYear}`,
+		condition: !loading && totalStops > 0,
+	})
+
 	return (
 		<div className="dashboard-page" style={{ textAlign: 'center' }}>
 			<h2>Pitstops</h2>
@@ -419,6 +429,7 @@ const Pitstops = () => {
 					)}
 				</div>
 			)}
+			<RecentSearches />
 		</div>
 	)
 }

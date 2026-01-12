@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
+import { useNumberParam, useRecordSearch } from '../utils/useSearchParamsSync'
 import '../styles/MainPage.css'
+import RecentSearches from '../components/RecentSearches'
 
 type Race = {
     round: string
@@ -23,7 +25,7 @@ const MIN_YEAR = 1950
 const MAX_YEAR = 2025
 
 const SeasonCalendar = () => {
-    const [year, setYear] = useState<number>(MAX_YEAR)
+    const [year, setYear] = useNumberParam('year', MAX_YEAR)
     const [races, setRaces] = useState<Race[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
@@ -49,6 +51,14 @@ const SeasonCalendar = () => {
         })()
         return () => { cancelled = true }
     }, [year])
+
+    // Record search when calendar loads
+    useRecordSearch({
+        type: 'season-calendar',
+        label: `${year} season calendar`,
+        path: `/season-calendar?year=${year}`,
+        condition: !loading && !error && races.length > 0,
+    })
 
     const formatWeekendRange = (race: Race): string => {
         const dateStrings = [
@@ -173,6 +183,7 @@ const SeasonCalendar = () => {
                     </div>
                 )}
             </div>
+            <RecentSearches />
         </div>
     )
 }
