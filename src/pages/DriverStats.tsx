@@ -614,6 +614,14 @@ const DriverStats = () => {
                     {stats && !statsLoading && !statsError && (
                         <div style={{ marginTop: '0.75rem' }}>
                             <p><strong>Seasons raced:</strong> {stats.seasons}</p>
+                            <p>
+                                <strong>Pole positions:</strong> {stats.poles}
+                            </p>
+                            {isBornBefore1975(selectedDriver?.dateOfBirth) && (
+                                <div style={{ marginTop: '-0.35rem', color: '#fbbf24', fontSize: '0.95rem' }}>
+                                    {POLE_WARNING}
+                                </div>
+                            )}
                             {(constructorPointsChart || constructorWinsChart || constructorRacesChart) && (
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem', marginTop: '1rem' }}>
                                     {constructorWinsChart && (
