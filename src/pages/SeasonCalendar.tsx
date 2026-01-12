@@ -91,13 +91,22 @@ const SeasonCalendar = () => {
     return (
         <div className="dashboard-page">
             <h2>Season Calendar</h2>
-            <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'center' }}>
                 <label>
                     Year:
                     <select
                         value={year}
                         onChange={(e) => setYear(Number(e.target.value))}
-                        style={{ marginLeft: '0.5rem', width: '120px' }}
+                        style={{
+                            marginLeft: '0.5rem',
+                            width: '140px',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            border: '1px solid #0f172a',
+                            background: '#0b0f1a',
+                            color: '#f8fafc',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+                        }}
                     >
                         {Array.from({ length: MAX_YEAR - MIN_YEAR + 1 }, (_, i) => MIN_YEAR + i).map((y) => (
                             <option key={y} value={y}>{y}</option>
@@ -110,56 +119,58 @@ const SeasonCalendar = () => {
                 {loading && <p>Loading calendar…</p>}
                 {error && <p style={{ color: 'red' }}>{error}</p>}
                 {!loading && !error && (
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Round</th>
-                                <th>Race</th>
-                                <th>Circuit</th>
-                                <th>Location</th>
-                                <th>Weekend</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {races.length === 0 ? (
-                                <tr><td colSpan={5}>No races found for {year}.</td></tr>
-                            ) : (
-                                races.map((r) => (
-                                    <tr key={r.round}>
-                                        <td>{r.round}</td>
-                                        <td>{r.raceName ?? 'Race'}</td>
-                                        <td>
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                {r.Circuit?.circuitName && (
-                                                    <Link
-                                                        to={`/track-stats?circuit=${encodeURIComponent(r.Circuit.circuitName)}`}
-                                                        title="View track stats"
-                                                        aria-label={`View track stats for ${r.Circuit.circuitName}`}
-                                                        style={{ fontSize: '0.95rem', textDecoration: 'none' }}
-                                                    >
-                                                        🔍
-                                                    </Link>
-                                                )}
-                                                <span>{r.Circuit?.circuitName ?? 'Unknown'}</span>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                {toFlagCode(r.Circuit?.Location?.country ?? null) && (
-                                                    <span
-                                                        className={`fi fi-${toFlagCode(r.Circuit?.Location?.country ?? null)}`}
-                                                        aria-label={`${r.Circuit?.Location?.country ?? ''} flag`}
-                                                    />
-                                                )}
-                                                <span>{[r.Circuit?.Location?.locality, r.Circuit?.Location?.country].filter(Boolean).join(', ')}</span>
-                                            </span>
-                                        </td>
-                                        <td>{formatWeekendRange(r)}</td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                    <div className="table-wrap" role="region" aria-label={`Season ${year} calendar`}>
+                        <table className="data-table data-table--hover">
+                            <thead>
+                                <tr>
+                                    <th>Round</th>
+                                    <th>Race</th>
+                                    <th>Circuit</th>
+                                    <th>Location</th>
+                                    <th>Weekend</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {races.length === 0 ? (
+                                    <tr><td colSpan={5}>No races found for {year}.</td></tr>
+                                ) : (
+                                    races.map((r) => (
+                                        <tr key={r.round}>
+                                            <td>{r.round}</td>
+                                            <td>{r.raceName ?? 'Race'}</td>
+                                            <td>
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                    {r.Circuit?.circuitName && (
+                                                        <Link
+                                                            to={`/track-stats?circuit=${encodeURIComponent(r.Circuit.circuitName)}`}
+                                                            title="View track stats"
+                                                            aria-label={`View track stats for ${r.Circuit.circuitName}`}
+                                                            style={{ fontSize: '0.95rem', textDecoration: 'none' }}
+                                                        >
+                                                            🔍
+                                                        </Link>
+                                                    )}
+                                                    <span>{r.Circuit?.circuitName ?? 'Unknown'}</span>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    {toFlagCode(r.Circuit?.Location?.country ?? null) && (
+                                                        <span
+                                                            className={`fi fi-${toFlagCode(r.Circuit?.Location?.country ?? null)}`}
+                                                            aria-label={`${r.Circuit?.Location?.country ?? ''} flag`}
+                                                        />
+                                                    )}
+                                                    <span>{[r.Circuit?.Location?.locality, r.Circuit?.Location?.country].filter(Boolean).join(', ')}</span>
+                                                </span>
+                                            </td>
+                                            <td>{formatWeekendRange(r)}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
         </div>

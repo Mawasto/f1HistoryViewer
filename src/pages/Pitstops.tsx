@@ -343,12 +343,25 @@ const Pitstops = () => {
 	}, [fromYear, toYear])
 
 	return (
-		<div className="dashboard-page">
+		<div className="dashboard-page" style={{ textAlign: 'center' }}>
 			<h2>Pitstops</h2>
-			<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', justifyContent: 'center' }}>
 				<label>
 					From:
-					<select value={fromYear} onChange={(e) => handleFromChange(Number(e.target.value))} style={{ marginLeft: '0.35rem' }}>
+					<select
+						value={fromYear}
+						onChange={(e) => handleFromChange(Number(e.target.value))}
+						style={{
+							marginLeft: '0.35rem',
+							width: '140px',
+							padding: '6px 10px',
+							borderRadius: '8px',
+							border: '1px solid #0f172a',
+							background: '#0b0f1a',
+							color: '#f8fafc',
+							boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+						}}
+					>
 						{years.map((y) => (
 							<option key={y} value={y}>{y}</option>
 						))}
@@ -356,7 +369,20 @@ const Pitstops = () => {
 				</label>
 				<label>
 					To:
-					<select value={toYear} onChange={(e) => handleToChange(Number(e.target.value))} style={{ marginLeft: '0.35rem' }}>
+					<select
+						value={toYear}
+						onChange={(e) => handleToChange(Number(e.target.value))}
+						style={{
+							marginLeft: '0.35rem',
+							width: '140px',
+							padding: '6px 10px',
+							borderRadius: '8px',
+							border: '1px solid #0f172a',
+							background: '#0b0f1a',
+							color: '#f8fafc',
+							boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+						}}
+					>
 						{years.map((y) => (
 							<option key={y} value={y}>{y}</option>
 						))}
