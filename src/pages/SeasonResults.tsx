@@ -369,9 +369,9 @@ const SeasonResults = () => {
                 <>
                     {/* Top summary boxes: driver champion + constructor champion */}
                     <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', alignItems: 'stretch', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                        <div style={{ minWidth: '260px', padding: '12px 16px', borderRadius: '8px', border: '1px solid #000000ff', background: '#fafafa' }}>
-                            <div style={{ fontSize: '0.9rem', color: '#555', marginBottom: '4px' }}>Driver World Champion</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#000' }}>
+                        <div style={{ minWidth: '260px', padding: '12px 16px', borderRadius: '10px', border: '1px solid #1f2937', background: '#0f172a', color: '#e5ecf5', boxShadow: '0 10px 26px rgba(0,0,0,0.35)' }}>
+                            <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '4px' }}>Driver World Champion</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc' }}>
                                 {championSummary.driverChampion ? (
                                     <>
                                         {championSummary.driverChampion.givenName} {championSummary.driverChampion.familyName}
@@ -380,19 +380,19 @@ const SeasonResults = () => {
                                     'N/A'
                                 )}
                             </div>
-                            <div style={{ marginTop: '6px', color: '#333' }}>1st place finishes: <span style={{ fontWeight: 600 }}>{championSummary.driverChampionWins}</span></div>
+                            <div style={{ marginTop: '6px', color: '#cbd5e1' }}>1st place finishes: <span style={{ fontWeight: 700 }}>{championSummary.driverChampionWins}</span></div>
                         </div>
 
-                        <div style={{ minWidth: '260px', padding: '12px 16px', borderRadius: '8px', border: '1px solid #000000ff', background: '#fafafa' }}>
-                            <div style={{ fontSize: '0.9rem', color: '#555', marginBottom: '4px' }}>Constructor Champions</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#000' }}>
+                        <div style={{ minWidth: '260px', padding: '12px 16px', borderRadius: '10px', border: '1px solid #1f2937', background: '#0f172a', color: '#e5ecf5', boxShadow: '0 10px 26px rgba(0,0,0,0.35)' }}>
+                            <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '4px' }}>Constructor Champions</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc' }}>
                                 {championSummary.constructorChampion ? (
                                     championSummary.constructorChampion.name
                                 ) : (
                                     'N/A'
                                 )}
                             </div>
-                            <div style={{ marginTop: '6px', color: '#333' }}>Combined wins: <span style={{ fontWeight: 600 }}>{championSummary.constructorChampionWins}</span></div>
+                            <div style={{ marginTop: '6px', color: '#cbd5e1' }}>Combined wins: <span style={{ fontWeight: 700 }}>{championSummary.constructorChampionWins}</span></div>
                         </div>
                     </div>
 
