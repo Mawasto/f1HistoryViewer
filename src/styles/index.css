@@ -24,11 +24,14 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
   min-height: 100vh;
+  /* remove flex centering so sticky works */
+  display: block;
+  background-color: #0b1220;
+  color: #e5ecf5;
 }
+
+/* ...existing rules... */
 
 h1 {
   font-size: 3.2em;
