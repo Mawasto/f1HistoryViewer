@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
+import { addRecentSearch } from '../utils/recentSearches'
 import '../styles/MainPage.css'
+import RecentSearches from '../components/RecentSearches'
 
 interface RaceResult {
     position: string;
@@ -214,6 +216,14 @@ const MainPage = () => {
         }
 
         load()
+    }, [])
+
+    useEffect(() => {
+        addRecentSearch({
+            type: 'main',
+            label: 'Main page',
+            path: '/',
+        })
     }, [])
 
     const winnerLaps = (() => {
@@ -455,6 +465,9 @@ const MainPage = () => {
                     </div>
                 </>
             )}
+
+            {/* Add recent searches widget at the end of the page */}
+            <RecentSearches />
         </div>
     )
 }

@@ -13,6 +13,8 @@ import {
 import { Bar } from 'react-chartjs-2'
 import { getConstructorTitles } from '../data/constructorTitles'
 import '../styles/MainPage.css'
+import { useStringParam, useRecordSearch } from '../utils/useSearchParamsSync'
+import RecentSearches from '../components/RecentSearches'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, Title)
 
@@ -178,7 +180,7 @@ const ConstructorStats = () => {
     const [constructors, setConstructors] = useState<Constructor[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
-    const [selectedName, setSelectedName] = useState('')
+    const [selectedName, setSelectedName] = useStringParam('constructor')
     const [metrics, setMetrics] = useState<ConstructorMetrics | null>(null)
     const [metricsLoading, setMetricsLoading] = useState(false)
     const [metricsError, setMetricsError] = useState('')
@@ -233,6 +235,14 @@ const ConstructorStats = () => {
 
         return () => { cancelled = true }
     }, [selectedConstructor])
+
+    // Record search when constructor is selected and metrics load
+    useRecordSearch({
+        type: 'constructor-stats',
+        label: `${selectedConstructor?.name ?? ''} stats`,
+        path: `/constructor-stats?constructor=${encodeURIComponent(selectedName)}`,
+        condition: !!selectedConstructor && !!metrics && !metricsLoading,
+    })
 
     const driverRaceChart = useMemo(() => {
         if (!metrics || metrics.driverRaceBreakdown.length === 0) return null
@@ -334,6 +344,7 @@ const ConstructorStats = () => {
                     )}
                 </div>
             )}
+            <RecentSearches />
         </div>
     )
 }
