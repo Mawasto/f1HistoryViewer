@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
+import { useNumberParam, useRecordSearch } from '../utils/useSearchParamsSync'
 import '../styles/MainPage.css'
+import RecentSearches from '../components/RecentSearches'
 
 const MIN_YEAR = 1950
 const CURRENT_YEAR = new Date().getFullYear()
@@ -49,7 +51,7 @@ const fetchJsonWithRetry = async (url: string, retries = 3, backoffMs = 800) => 
 }
 
 const SeasonResults = () => {
-    const [year, setYear] = useState<number>(randYear())
+    const [year, setYear] = useNumberParam('year', randYear())
     const [driverStandings, setDriverStandings] = useState<any[]>([])
     const [constructorStandings, setConstructorStandings] = useState<any[]>([])
     const [seasonRaces, setSeasonRaces] = useState<any[]>([])
@@ -227,6 +229,14 @@ const SeasonResults = () => {
 
         load()
     }, [year])
+
+    // Record search when year changes and data loads
+    useRecordSearch({
+        type: 'season-results',
+        label: `Season ${year} results`,
+        path: `/season-results?year=${year}`,
+        condition: !loading && !error && seasonRaces.length > 0,
+    })
 
     // Build a compact descriptor for each round to reuse in both tables
     const roundColumns = useMemo(() => (
@@ -465,6 +475,8 @@ const SeasonResults = () => {
                             </table>
                         </div>
                      </div>
+
+                     <RecentSearches />
                  </>
              )}
          </div>

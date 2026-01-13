@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -13,6 +12,8 @@ import { Bar } from 'react-chartjs-2'
 import 'flag-icons/css/flag-icons.min.css'
 import { toFlagCode } from '../utils/countryFlag'
 import '../styles/MainPage.css'
+import { useStringParam, useRecordSearch } from '../utils/useSearchParamsSync'
+import RecentSearches from '../components/RecentSearches'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, Title)
 
@@ -150,10 +151,9 @@ async function fetchCircuitResults(circuitId: string): Promise<any[]> {
 
 const TrackStats = () => {
     const [circuits, setCircuits] = useState<Circuit[]>([])
-    const [searchParams] = useSearchParams()
+    const [selectedName, setSelectedName] = useStringParam('circuit')
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
-    const [selectedName, setSelectedName] = useState('')
     const [raceStats, setRaceStats] = useState<CircuitRaceStats | null>(null)
     const [statsLoading, setStatsLoading] = useState(false)
     const [statsError, setStatsError] = useState('')
@@ -228,13 +228,6 @@ const TrackStats = () => {
         () => toFlagCode(selectedCircuit?.Location?.country ?? null),
         [selectedCircuit?.Location?.country]
     )
-
-    useEffect(() => {
-        const circuitParam = searchParams.get('circuit')
-        if (circuitParam) {
-            setSelectedName(circuitParam)
-        }
-    }, [searchParams])
 
     const mapSrc = useMemo(() => {
         const loc = selectedCircuit?.Location
@@ -325,6 +318,14 @@ const TrackStats = () => {
 
         return () => { cancelled = true }
     }, [selectedCircuit])
+
+    // Record search when circuit is selected and stats load
+    useRecordSearch({
+        type: 'track-stats',
+        label: `${selectedCircuit?.circuitName ?? ''} stats`,
+        path: `/track-stats?circuit=${encodeURIComponent(selectedName)}`,
+        condition: !!selectedCircuit && !!raceStats && !statsLoading,
+    })
 
     return (
         <div className="dashboard-page">
@@ -432,6 +433,7 @@ const TrackStats = () => {
                     )}
                 </div>
             )}
+            <RecentSearches />
         </div>
     )
 }

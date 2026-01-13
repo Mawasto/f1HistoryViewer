@@ -15,6 +15,8 @@ import {
 import { Bar, Line } from 'react-chartjs-2'
 import { getChampionshipTitles } from '../data/championshipTitles'
 import '../styles/MainPage.css'
+import { useStringParam, useRecordSearch } from '../utils/useSearchParamsSync'
+import RecentSearches from '../components/RecentSearches'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Title)
 
@@ -316,7 +318,7 @@ const DriverStats = () => {
     const [drivers, setDrivers] = useState<Driver[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
-    const [selectedName, setSelectedName] = useState('')
+    const [selectedName, setSelectedName] = useStringParam('driver')
     const [stats, setStats] = useState<DriverCareerStats | null>(null)
     const [statsLoading, setStatsLoading] = useState(false)
     const [statsError, setStatsError] = useState('')
@@ -557,6 +559,14 @@ const DriverStats = () => {
         }
     }, [stats])
 
+    // Record search when driver is selected and stats load
+    useRecordSearch({
+        type: 'driver-stats',
+        label: `${selectedDriver?.givenName ?? ''} ${selectedDriver?.familyName ?? ''} stats`,
+        path: `/driver-stats?driver=${encodeURIComponent(selectedName)}`,
+        condition: !!selectedDriver && !!stats && !statsLoading,
+    })
+
     return (
         <div className="dashboard-page">
             <h2>Driver Stats</h2>
@@ -650,6 +660,7 @@ const DriverStats = () => {
                     )}
                 </div>
             )}
+            <RecentSearches />
         </div>
     )
 }
