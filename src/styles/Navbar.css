@@ -68,6 +68,66 @@
     margin: 0;
 }
 
+.nav-auth {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: 1rem;
+}
+
+.nav-auth-loading {
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.nav-user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.nav-user-email {
+    color: #38bdf8;
+    font-size: 0.9rem;
+    font-weight: 600;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nav-auth-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.nav-login-btn {
+    background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+    color: #0f172a;
+}
+
+.nav-login-btn:hover {
+    background: linear-gradient(135deg, #7dd3fc 0%, #38bdf8 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+}
+
+.nav-logout-btn {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.nav-logout-btn:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
 @media (max-width: 768px) {
     .nav-inner {
         flex-direction: column;
@@ -75,5 +135,14 @@
     }
     .nav-links {
         justify-content: flex-start;
+    }
+    
+    .nav-auth {
+        margin-left: 0;
+        margin-top: 0.5rem;
+    }
+    
+    .nav-user-email {
+        max-width: 120px;
     }
 }
