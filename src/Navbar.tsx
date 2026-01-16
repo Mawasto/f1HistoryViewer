@@ -18,7 +18,7 @@ const Navbar = () => {
                 <div className="nav-inner">
                     <div className="nav-brand">f1HistoryViewer</div>
                     <ul className="nav-links">
-                        <li><Link to="/">Main Page</Link></li>
+                        <li><Link to="/">Home</Link></li>
                         <li><Link to="/season-results">Results from Season</Link></li>
                         <li><Link to="/driver-stats">Driver Stats</Link></li>
                         <li><Link to="/constructor-stats">Constructor Stats</Link></li>
