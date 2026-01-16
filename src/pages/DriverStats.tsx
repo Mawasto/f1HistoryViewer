@@ -1,4 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
+import 'flag-icons/css/flag-icons.min.css'
+import { toFlagCode } from '../utils/countryFlag'
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    BarElement,
+    Tooltip,
+    Legend,
+    Title,
+} from 'chart.js'
+import { Bar, Line } from 'react-chartjs-2'
+import { getChampionshipTitles } from '../data/championshipTitles'
+import '../styles/MainPage.css'
+import { useStringParam, useRecordSearch } from '../utils/useSearchParamsSync'
+import RecentSearches from '../components/RecentSearches'
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Title)
 
 type Driver = {
     driverId: string
@@ -11,7 +31,7 @@ type Driver = {
 }
 
 const DRIVER_CACHE_KEY = 'allDrivers_cache_v3'
-const DRIVER_STATS_CACHE_PREFIX = 'driver_stats_cache_v3_'
+const DRIVER_STATS_CACHE_PREFIX = 'driver_stats_cache_v4_'
 const ACTIVE_STATUS_CACHE_PREFIX = 'active_driver_ids_'
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
@@ -125,6 +145,8 @@ type DriverCareerStats = {
     wins: number
     poles: number
     seasons: number
+    avgFinish: number | null
+    avgQualifying: number | null
     pointsBySeason: Record<string, number>
     constructorBreakdown: ConstructorBreakdown[]
 }
@@ -196,6 +218,8 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
 
     const pointsBySeason: Record<string, number> = {}
     let wins = 0
+    let finishPosSum = 0
+    let finishPosCount = 0
     const constructorMap: Record<string, ConstructorBreakdown> = {}
 
     for (const race of resultsRaces) {
@@ -213,6 +237,12 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
             pointsBySeason[season] = (pointsBySeason[season] ?? 0) + pts
         }
         if (result.position === '1') wins++
+
+        const finishPos = Number(result.position)
+        if (Number.isFinite(finishPos)) {
+            finishPosSum += finishPos
+            finishPosCount += 1
+        }
 
         const cid = result?.Constructor?.constructorId ?? result?.Constructor?.name ?? 'unknown'
         const cname = result?.Constructor?.name ?? cid
@@ -242,10 +272,17 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
     }
 
     let poles = 0
+    let qualiPosSum = 0
+    let qualiPosCount = 0
     for (const race of qualifyingRaces) {
         const quali = Array.isArray(race?.QualifyingResults) ? race.QualifyingResults[0] : undefined
         if (!quali) continue
         if (quali.position === '1') poles++
+        const qualiPos = Number(quali.position)
+        if (Number.isFinite(qualiPos)) {
+            qualiPosSum += qualiPos
+            qualiPosCount += 1
+        }
     }
 
     const seasons = Object.keys(pointsBySeason).length
@@ -254,6 +291,8 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
         wins,
         poles,
         seasons,
+        avgFinish: finishPosCount > 0 ? finishPosSum / finishPosCount : null,
+        avgQualifying: qualiPosCount > 0 ? qualiPosSum / qualiPosCount : null,
         pointsBySeason,
         constructorBreakdown: Object.values(constructorMap).sort((a, b) => {
             if (a.firstSeason !== b.firstSeason) return a.firstSeason - b.firstSeason
@@ -265,11 +304,21 @@ async function fetchDriverCareerStats(driverId: string): Promise<DriverCareerSta
     return stats
 }
 
+const POLE_WARNING = 'Data might be incorrect as there is no qualifying results stored for years before 1991'
+
+const isBornBefore1975 = (dob?: string) => {
+    if (!dob) return false
+    const year = Number(dob.split('-')[0])
+    return Number.isFinite(year) && year < 1975
+}
+
+const formatAverage = (value: number | null) => value === null ? 'N/A' : value.toFixed(2)
+
 const DriverStats = () => {
     const [drivers, setDrivers] = useState<Driver[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
-    const [selectedName, setSelectedName] = useState('')
+    const [selectedName, setSelectedName] = useStringParam('driver')
     const [stats, setStats] = useState<DriverCareerStats | null>(null)
     const [statsLoading, setStatsLoading] = useState(false)
     const [statsError, setStatsError] = useState('')
@@ -304,6 +353,8 @@ const DriverStats = () => {
         if (!target) return undefined
         return drivers.find((d) => `${d.givenName} ${d.familyName}`.toLowerCase() === target)
     }, [drivers, selectedName])
+
+    const nationalityFlag = useMemo(() => toFlagCode(selectedDriver?.nationality ?? null), [selectedDriver?.nationality])
 
     useEffect(() => {
         const driverId = selectedDriver?.driverId
@@ -354,8 +405,170 @@ const DriverStats = () => {
         return () => { cancelled = true }
     }, [selectedDriver])
 
+    const pointsChart = useMemo(() => {
+        if (!stats) return null
+        const labels = Object.keys(stats.pointsBySeason).sort((a, b) => Number(a) - Number(b))
+        if (labels.length === 0) return null
+
+        return {
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Points',
+                        data: labels.map((season) => stats.pointsBySeason[season] ?? 0),
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.18)',
+                        tension: 0.25,
+                        fill: true,
+                        pointRadius: 3,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' as const },
+                    title: { display: true, text: 'Points per season' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context: any) => `${context.formattedValue} pts`,
+                        },
+                    },
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { grid: { display: false } },
+                },
+            },
+        }
+    }, [stats])
+
+    const constructorPointsChart = useMemo(() => {
+        if (!stats || stats.constructorBreakdown.length === 0) return null
+        const labels = stats.constructorBreakdown.map((c) => c.name)
+        const points = stats.constructorBreakdown.map((c) => c.points)
+
+        return {
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Points',
+                        data: points,
+                        backgroundColor: 'rgba(56, 189, 248, 0.7)',
+                        borderColor: 'rgba(56, 189, 248, 1)',
+                        borderWidth: 1,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' as const },
+                    title: { display: true, text: 'Points by constructor' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context: any) => `${context.dataset.label}: ${context.formattedValue}`,
+                        },
+                    },
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { grid: { display: false } },
+                },
+            },
+        }
+    }, [stats])
+
+    const constructorWinsChart = useMemo(() => {
+        if (!stats || stats.constructorBreakdown.length === 0) return null
+        const labels = stats.constructorBreakdown.map((c) => c.name)
+        const wins = stats.constructorBreakdown.map((c) => c.wins)
+
+        return {
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Wins',
+                        data: wins,
+                        backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                        borderColor: 'rgba(34, 197, 94, 1)',
+                        borderWidth: 1,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' as const },
+                    title: { display: true, text: 'Wins by constructor' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context: any) => `${context.dataset.label}: ${context.formattedValue}`,
+                        },
+                    },
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { grid: { display: false } },
+                },
+            },
+        }
+    }, [stats])
+
+    const constructorRacesChart = useMemo(() => {
+        if (!stats || stats.constructorBreakdown.length === 0) return null
+        const labels = stats.constructorBreakdown.map((c) => c.name)
+        const races = stats.constructorBreakdown.map((c) => c.races)
+
+        return {
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Races',
+                        data: races,
+                        backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                        borderColor: 'rgba(99, 102, 241, 1)',
+                        borderWidth: 1,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' as const },
+                    title: { display: true, text: 'Races by constructor' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context: any) => `${context.dataset.label}: ${context.formattedValue}`,
+                        },
+                    },
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { grid: { display: false } },
+                },
+            },
+        }
+    }, [stats])
+
+    // Record search when driver is selected and stats load
+    useRecordSearch({
+        type: 'driver-stats',
+        label: `${selectedDriver?.givenName ?? ''} ${selectedDriver?.familyName ?? ''} stats`,
+        path: `/driver-stats?driver=${encodeURIComponent(selectedName)}`,
+        condition: !!selectedDriver && !!stats && !statsLoading,
+    })
+
     return (
-        <div>
+        <div className="dashboard-page">
             <h2>Driver Stats</h2>
             {loading && <p>Loading driver list…</p>}
             {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -383,12 +596,19 @@ const DriverStats = () => {
             </div>
 
             {selectedDriver && (
-                <div style={{ marginTop: '1rem', textAlign: 'left' }}>
+                <div style={{ marginTop: '1rem', textAlign: 'center' }}>
                     <h3>{selectedDriver.givenName} {selectedDriver.familyName}</h3>
                     <p><strong>Date of birth:</strong> {selectedDriver.dateOfBirth ?? 'N/A'}</p>
                     {selectedDriver.permanentNumber && <p><strong>Number:</strong> {selectedDriver.permanentNumber}</p>}
                     {selectedDriver.code && <p><strong>Code:</strong> {selectedDriver.code}</p>}
-                    {selectedDriver.nationality && <p><strong>Nationality:</strong> {selectedDriver.nationality}</p>}
+                    {selectedDriver.nationality && (
+                        <p style={{ alignItems: 'center', gap: '0.5rem' }}>
+                            <strong style={{ marginRight: '2px' }}>Nationality:</strong>
+                            <span>{selectedDriver.nationality}</span>
+                            {nationalityFlag && <span className={`fi fi-${nationalityFlag}`} aria-label={`${selectedDriver.nationality} flag`} />}
+                        </p>
+                    )}
+                    <p><strong>World Championships:</strong> {getChampionshipTitles(selectedDriver.driverId)}</p>
 
                     {isActive !== null && !activeError && (
                         <p><strong>Status:</strong> {isActive ? 'Active' : 'Retired'}</p>
@@ -403,34 +623,44 @@ const DriverStats = () => {
 
                     {stats && !statsLoading && !statsError && (
                         <div style={{ marginTop: '0.75rem' }}>
-                            <p><strong>Races started:</strong> {stats.racesStarted}</p>
-                            <p><strong>Wins:</strong> {stats.wins}</p>
-                            <p><strong>Pole positions:</strong> {stats.poles}</p>
                             <p><strong>Seasons raced:</strong> {stats.seasons}</p>
-                            <div style={{ marginTop: '0.5rem' }}>
-                                <strong>Points by season:</strong>
-                                <ul style={{ marginTop: '0.25rem' }}>
-                                    {Object.entries(stats.pointsBySeason)
-                                        .sort(([a], [b]) => Number(a) - Number(b))
-                                        .map(([season, pts]) => (
-                                            <li key={season}>{season}: {pts}</li>
-                                        ))}
-                                </ul>
-                            </div>
-                            <div style={{ marginTop: '0.75rem' }}>
-                                <strong>Performance by constructor:</strong>
-                                <ul style={{ marginTop: '0.25rem' }}>
-                                    {stats.constructorBreakdown.map((c) => (
-                                        <li key={c.constructorId}>
-                                            {c.name} — races: {c.races}, points: {c.points}, wins: {c.wins}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
+                            <p>
+                                <strong>Pole positions:</strong> {stats.poles}
+                            </p>
+                            {isBornBefore1975(selectedDriver?.dateOfBirth) && (
+                                <div style={{ marginTop: '-0.35rem', color: '#fbbf24', fontSize: '0.95rem' }}>
+                                    {POLE_WARNING}
+                                </div>
+                            )}
+                            {(constructorPointsChart || constructorWinsChart || constructorRacesChart) && (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                                    {constructorWinsChart && (
+                                        <div style={{ minHeight: '280px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                            <Bar data={constructorWinsChart.data} options={constructorWinsChart.options} />
+                                        </div>
+                                    )}
+                                    {constructorPointsChart && (
+                                        <div style={{ minHeight: '280px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                            <Bar data={constructorPointsChart.data} options={constructorPointsChart.options} />
+                                        </div>
+                                    )}
+                                    {constructorRacesChart && (
+                                        <div style={{ minHeight: '280px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                            <Bar data={constructorRacesChart.data} options={constructorRacesChart.options} />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {pointsChart && (
+                                <div style={{ marginTop: '1rem', minHeight: '320px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                    <Line data={pointsChart.data} options={pointsChart.options} />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
             )}
+            <RecentSearches />
         </div>
     )
 }

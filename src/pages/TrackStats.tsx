@@ -1,4 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Tooltip,
+    Legend,
+    Title,
+} from 'chart.js'
+import { Bar } from 'react-chartjs-2'
+import 'flag-icons/css/flag-icons.min.css'
+import { toFlagCode } from '../utils/countryFlag'
+import '../styles/MainPage.css'
+import { useStringParam, useRecordSearch } from '../utils/useSearchParamsSync'
+import RecentSearches from '../components/RecentSearches'
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, Title)
 
 type Circuit = {
     circuitId: string
@@ -134,9 +151,9 @@ async function fetchCircuitResults(circuitId: string): Promise<any[]> {
 
 const TrackStats = () => {
     const [circuits, setCircuits] = useState<Circuit[]>([])
+    const [selectedName, setSelectedName] = useStringParam('circuit')
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
-    const [selectedName, setSelectedName] = useState('')
     const [raceStats, setRaceStats] = useState<CircuitRaceStats | null>(null)
     const [statsLoading, setStatsLoading] = useState(false)
     const [statsError, setStatsError] = useState('')
@@ -144,6 +161,44 @@ const TrackStats = () => {
     const [lastRaceResults, setLastRaceResults] = useState<{ raceName: string; date?: string; season?: string; results: any[] } | null>(null)
     const [resultsLoading, setResultsLoading] = useState(false)
     const [resultsError, setResultsError] = useState('')
+
+    const topWinsChart = useMemo(() => {
+        if (!topDrivers || topDrivers.length === 0) return null
+        const labels = topDrivers.map(d => d.name)
+        const dataPoints = topDrivers.map(d => d.wins)
+        return {
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Wins',
+                        data: dataPoints,
+                        backgroundColor: 'rgba(56, 189, 248, 0.75)',
+                        borderColor: 'rgba(56, 189, 248, 1)',
+                        borderWidth: 1,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y' as const,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'Top 3 drivers by wins at this circuit' },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx: any) => `${ctx.formattedValue} wins`,
+                        },
+                    },
+                },
+                scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0 }, grid: { display: true } },
+                    y: { grid: { display: false } },
+                },
+            },
+        }
+    }, [topDrivers])
 
     useEffect(() => {
         let cancelled = false
@@ -168,6 +223,25 @@ const TrackStats = () => {
         if (!target) return undefined
         return circuits.find((c) => c.circuitName.toLowerCase() === target)
     }, [circuits, selectedName])
+
+    const locationFlag = useMemo(
+        () => toFlagCode(selectedCircuit?.Location?.country ?? null),
+        [selectedCircuit?.Location?.country]
+    )
+
+    const mapSrc = useMemo(() => {
+        const loc = selectedCircuit?.Location
+        if (!loc) return null
+        const { lat, long, locality, country } = loc
+        if (lat && long) {
+            return `https://www.google.com/maps?q=${lat},${long}&hl=en&z=12&output=embed`
+        }
+        const query = [locality, country].filter(Boolean).join(', ')
+        if (query) {
+            return `https://www.google.com/maps?q=${encodeURIComponent(query)}&hl=en&z=6&output=embed`
+        }
+        return null
+    }, [selectedCircuit?.Location])
 
     useEffect(() => {
         if (!selectedCircuit) {
@@ -245,8 +319,16 @@ const TrackStats = () => {
         return () => { cancelled = true }
     }, [selectedCircuit])
 
+    // Record search when circuit is selected and stats load
+    useRecordSearch({
+        type: 'track-stats',
+        label: `${selectedCircuit?.circuitName ?? ''} stats`,
+        path: `/track-stats?circuit=${encodeURIComponent(selectedName)}`,
+        condition: !!selectedCircuit && !!raceStats && !statsLoading,
+    })
+
     return (
-        <div>
+        <div className="dashboard-page">
             <h2>Track Stats</h2>
             {loading && <p>Loading circuit list…</p>}
             {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -274,13 +356,28 @@ const TrackStats = () => {
                 <div style={{ marginTop: '1rem', textAlign: 'left' }}>
                     <h3>{selectedCircuit.circuitName}</h3>
                     {selectedCircuit.Location && (
-                        <p>
-                            <strong>Location:</strong>{' '}
-                            {[selectedCircuit.Location.locality, selectedCircuit.Location.country].filter(Boolean).join(', ') || 'N/A'}
+                        <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <strong style={{ marginRight: '2px' }}>Location:</strong>
+                            <span>{[selectedCircuit.Location.locality, selectedCircuit.Location.country].filter(Boolean).join(', ') || 'N/A'}</span>
+                            {locationFlag && <span className={`fi fi-${locationFlag}`} aria-label={`${selectedCircuit.Location.country} flag`} />}
                         </p>
                     )}
                     {selectedCircuit.Location?.lat && selectedCircuit.Location?.long && (
                         <p><strong>Coordinates:</strong> {selectedCircuit.Location.lat}, {selectedCircuit.Location.long}</p>
+                    )}
+                    {mapSrc && (
+                        <div style={{ marginTop: '0.5rem', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 8px 22px rgba(0,0,0,0.18)', maxWidth: '640px' }}>
+                            <iframe
+                                title="Circuit location map"
+                                src={mapSrc}
+                                width="100%"
+                                height="320"
+                                style={{ border: 0, display: 'block' }}
+                                loading="lazy"
+                                allowFullScreen
+                                referrerPolicy="no-referrer-when-downgrade"
+                            />
+                        </div>
                     )}
                     {statsLoading && <p>Loading circuit race stats…</p>}
                     {statsError && <p style={{ color: 'red' }}>{statsError}</p>}
@@ -295,58 +392,48 @@ const TrackStats = () => {
                         {resultsLoading && <p>Loading circuit results…</p>}
                         {resultsError && <p style={{ color: 'red' }}>{resultsError}</p>}
                         {!resultsLoading && !resultsError && (
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Driver</th>
-                                        <th>Wins</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {topDrivers.length === 0 ? (
-                                        <tr><td colSpan={2}>No wins recorded</td></tr>
-                                    ) : (
-                                        topDrivers.map((d) => (
-                                            <tr key={d.driverId}>
-                                                <td>{d.name}</td>
-                                                <td>{d.wins}</td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
+                            <>
+                                {topWinsChart && (
+                                    <div style={{ marginTop: '1rem', minHeight: '260px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                        <Bar data={topWinsChart.data} options={topWinsChart.options} />
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                     {lastRaceResults && !resultsLoading && !resultsError && (
                         <div style={{ marginTop: '1rem' }}>
                             <h4>Last race held here ({lastRaceResults.season ?? ''}{lastRaceResults.date ? ` – ${lastRaceResults.date}` : ''})</h4>
                             <p style={{ marginTop: '-0.25rem' }}>{lastRaceResults.raceName}</p>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Pos</th>
-                                        <th>Driver</th>
-                                        <th>Constructor</th>
-                                        <th>Time / Status</th>
-                                        <th>Points</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {lastRaceResults.results.map((res: any, idx: number) => (
-                                        <tr key={idx}>
-                                            <td>{res.position}</td>
-                                            <td>{`${res.Driver?.givenName ?? ''} ${res.Driver?.familyName ?? ''}`.trim()}</td>
-                                            <td>{res.Constructor?.name ?? res.Constructor?.constructorId ?? ''}</td>
-                                            <td>{res.Time?.time ?? res.status ?? ''}</td>
-                                            <td>{res.points}</td>
+                            <div className="table-wrap" style={{ marginTop: '0.35rem' }}>
+                                <table className="data-table data-table--hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Pos</th>
+                                            <th>Driver</th>
+                                            <th>Constructor</th>
+                                            <th>Time / Status</th>
+                                            <th>Points</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {lastRaceResults.results.map((res: any, idx: number) => (
+                                            <tr key={idx}>
+                                                <td>{res.position}</td>
+                                                <td>{`${res.Driver?.givenName ?? ''} ${res.Driver?.familyName ?? ''}`.trim()}</td>
+                                                <td>{res.Constructor?.name ?? res.Constructor?.constructorId ?? ''}</td>
+                                                <td>{res.Time?.time ?? res.status ?? ''}</td>
+                                                <td>{res.points}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
                 </div>
             )}
+            <RecentSearches />
         </div>
     )
 }

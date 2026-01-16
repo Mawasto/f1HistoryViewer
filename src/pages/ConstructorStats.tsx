@@ -1,4 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
+import 'flag-icons/css/flag-icons.min.css'
+import { toFlagCode } from '../utils/countryFlag'
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Tooltip,
+    Legend,
+    Title,
+} from 'chart.js'
+import { Bar } from 'react-chartjs-2'
+import { getConstructorTitles } from '../data/constructorTitles'
+import '../styles/MainPage.css'
+import { useStringParam, useRecordSearch } from '../utils/useSearchParamsSync'
+import RecentSearches from '../components/RecentSearches'
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, Title)
 
 type Constructor = {
     constructorId: string
@@ -8,7 +26,7 @@ type Constructor = {
 }
 
 const CONSTRUCTOR_CACHE_KEY = 'allConstructors_cache_v1'
-const CONSTRUCTOR_STATS_CACHE_PREFIX = 'constructor_stats_v1_'
+const CONSTRUCTOR_STATS_CACHE_PREFIX = 'constructor_stats_v2_'
 
 type ConstructorMetrics = {
     seasons: number
@@ -17,6 +35,7 @@ type ConstructorMetrics = {
     driverCount: number
     topDriverName: string | null
     topDriverRaces: number
+    driverRaceBreakdown: { driverId: string; name: string; races: number }[]
 }
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
@@ -139,6 +158,10 @@ async function fetchConstructorMetrics(constructorId: string): Promise<Construct
         }
     }
 
+    const driverRaceBreakdown = Object.entries(driverRaceCounts)
+        .map(([driverId, info]) => ({ driverId, name: info.name, races: info.count }))
+        .sort((a, b) => b.races - a.races)
+
     const metrics: ConstructorMetrics = {
         seasons: seasonSet.size,
         firstSeason,
@@ -146,6 +169,7 @@ async function fetchConstructorMetrics(constructorId: string): Promise<Construct
         driverCount: Object.keys(driverRaceCounts).length,
         topDriverName: topDriverId ? driverRaceCounts[topDriverId].name : null,
         topDriverRaces,
+        driverRaceBreakdown,
     }
 
     try { sessionStorage.setItem(cacheKey, JSON.stringify({ year: currentYear, metrics })) } catch {}
@@ -156,7 +180,7 @@ const ConstructorStats = () => {
     const [constructors, setConstructors] = useState<Constructor[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
-    const [selectedName, setSelectedName] = useState('')
+    const [selectedName, setSelectedName] = useStringParam('constructor')
     const [metrics, setMetrics] = useState<ConstructorMetrics | null>(null)
     const [metricsLoading, setMetricsLoading] = useState(false)
     const [metricsError, setMetricsError] = useState('')
@@ -185,6 +209,8 @@ const ConstructorStats = () => {
         return constructors.find((c) => c.name.toLowerCase() === target)
     }, [constructors, selectedName])
 
+    const nationalityFlag = useMemo(() => toFlagCode(selectedConstructor?.nationality ?? null), [selectedConstructor?.nationality])
+
     useEffect(() => {
         if (!selectedConstructor) {
             setMetrics(null)
@@ -210,8 +236,62 @@ const ConstructorStats = () => {
         return () => { cancelled = true }
     }, [selectedConstructor])
 
+    // Record search when constructor is selected and metrics load
+    useRecordSearch({
+        type: 'constructor-stats',
+        label: `${selectedConstructor?.name ?? ''} stats`,
+        path: `/constructor-stats?constructor=${encodeURIComponent(selectedName)}`,
+        condition: !!selectedConstructor && !!metrics && !metricsLoading,
+    })
+
+    const driverRaceChart = useMemo(() => {
+        if (!metrics || metrics.driverRaceBreakdown.length === 0) return null
+        const topDrivers = metrics.driverRaceBreakdown.slice(0, 20)
+        const labels = topDrivers.map((d) => d.name)
+        const dataPoints = topDrivers.map((d) => d.races)
+
+        return {
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Races',
+                        data: dataPoints,
+                        backgroundColor: 'rgba(56, 189, 248, 0.75)',
+                        borderColor: 'rgba(56, 189, 248, 1)',
+                        borderWidth: 1,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y' as const,
+                plugins: {
+                    legend: { position: 'bottom' as const },
+                    title: { display: true, text: 'Drivers by races for this constructor (top 20)' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context: any) => `${context.dataset.label}: ${context.formattedValue}`,
+                        },
+                    },
+                },
+                scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0 } },
+                    y: {
+                        grid: { display: false },
+                        ticks: {
+                            autoSkip: false,
+                            font: { size: 11 },
+                        },
+                    },
+                },
+            },
+        }
+    }, [metrics])
+
     return (
-        <div>
+        <div className="dashboard-page">
             <h2>Constructor Stats</h2>
             {loading && <p>Loading constructor list…</p>}
             {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -238,7 +318,12 @@ const ConstructorStats = () => {
             {selectedConstructor && (
                 <div style={{ marginTop: '1rem', textAlign: 'left' }}>
                     <h3>{selectedConstructor.name}</h3>
-                    <p><strong>Nationality:</strong> {selectedConstructor.nationality ?? 'N/A'}</p>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <strong style={{ marginRight: '2px' }}>Nationality:</strong>
+                        <span>{selectedConstructor.nationality ?? 'N/A'}</span>
+                        {nationalityFlag && <span className={`fi fi-${nationalityFlag}`} aria-label={`${selectedConstructor.nationality} flag`} />}
+                    </p>
+                    <p><strong>World Championships:</strong> {getConstructorTitles(selectedConstructor.constructorId)}</p>
                     {metricsLoading && <p>Loading constructor stats…</p>}
                     {metricsError && <p style={{ color: 'red' }}>{metricsError}</p>}
                     {metrics && !metricsLoading && !metricsError && (
@@ -246,14 +331,20 @@ const ConstructorStats = () => {
                             <p><strong>Seasons raced:</strong> {metrics.seasons}</p>
                             <p><strong>First season:</strong> {metrics.firstSeason ?? 'N/A'}</p>
                             <p><strong>Total wins:</strong> {metrics.wins}</p>
-                            <p><strong>Drivers that raced for this team:</strong> {metrics.driverCount}</p>
                             {metrics.topDriverName && metrics.topDriverRaces > 0 && (
                                 <p><strong>Driver with most races for this team:</strong> {metrics.topDriverName} ({metrics.topDriverRaces} races)</p>
+                            )}
+                            <p><strong>Total number of drivers that had raced for this team:</strong> {metrics.driverCount}</p>
+                            {driverRaceChart && (
+                                <div style={{ marginTop: '1rem', minHeight: '360px', background: '#0b0f1a', color: '#f8fafc', padding: '12px 14px', borderRadius: '12px', boxShadow: '0 8px 22px rgba(0,0,0,0.18)' }}>
+                                    <Bar data={driverRaceChart.data} options={driverRaceChart.options} />
+                                </div>
                             )}
                         </div>
                     )}
                 </div>
             )}
+            <RecentSearches />
         </div>
     )
 }

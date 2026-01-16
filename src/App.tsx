@@ -8,7 +8,7 @@ import TrackStats from './pages/TrackStats'
 import Pitstops from './pages/Pitstops'
 import CompareDrivers from './pages/CompareDrivers'
 import SeasonCalendar from './pages/SeasonCalendar'
-import './App.css'
+import './styles/App.css'
 
 function App() {
   return (

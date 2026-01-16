@@ -1,4 +1,9 @@
 import { useEffect, useState } from 'react'
+import 'flag-icons/css/flag-icons.min.css'
+import { toFlagCode } from '../utils/countryFlag'
+import { addRecentSearch } from '../utils/recentSearches'
+import '../styles/MainPage.css'
+import RecentSearches from '../components/RecentSearches'
 
 interface RaceResult {
     position: string;
@@ -21,6 +26,7 @@ interface RaceResult {
     laps?: string;
     points: string;
 }
+
 
 const MainPage = () => {
     const [results, setResults] = useState<RaceResult[]>([])
@@ -212,6 +218,14 @@ const MainPage = () => {
         load()
     }, [])
 
+    useEffect(() => {
+        addRecentSearch({
+            type: 'main',
+            label: 'Main page',
+            path: '/',
+        })
+    }, [])
+
     const winnerLaps = (() => {
         const winnerLapsStr = results.find(r => r.position === '1')?.laps
         const n = winnerLapsStr ? parseInt(winnerLapsStr, 10) : NaN
@@ -237,148 +251,223 @@ const MainPage = () => {
         return Object.values(map).sort((a, b) => b.points - a.points)
     })()
 
+    const placeFlagCode = toFlagCode(country)
+
     return (
-        <div>
-            <h2>{raceName}</h2>
-            {lastDate && <p>Date: {lastDate}</p>}
-            {circuitName && <p>Track: {circuitName}</p>}
-            {(locality || country) && <p>Place: {locality ?? ''}{locality && country ? ', ' : ''}{country ?? ''}</p>}
+        <div className="dashboard-page">
+            <div className="page-header">
+                <div>
+                    <p className="eyebrow">Latest Grand Prix</p>
+                    <h2 className="page-title">{raceName}</h2>
+                    {lastDate && <p className="muted">Date: {lastDate}</p>}
+                    {circuitName && <p className="muted">Track: {circuitName}</p>}
+                    {(locality || country) && (
+                        <p className="muted place-row">
+                            <span>Place: {locality ?? ''}{locality && country ? ', ' : ''}{country ?? ''}</span>
+                            {placeFlagCode && <span className={`fi fi-${placeFlagCode}`} aria-label={`${country ?? ''} flag`} />}
+                        </p>
+                    )}
+                </div>
+                <div className="badge-stack">
+                    {lastRound !== null && totalRaces !== null && (
+                        <span className="badge">Round {lastRound} / {totalRaces}</span>
+                    )}
+                    {standingsSeason && (
+                        <span className="badge badge-ghost">Driver standings: {standingsSeason}</span>
+                    )}
+                </div>
+            </div>
+
             {loading ? (
-                <p>Loading...</p>
+                <div className="card card-muted" role="status">Loading…</div>
             ) : error ? (
-                <p style={{ color: 'red' }}>{error}</p>
+                <div className="card card-error" role="alert">{error}</div>
             ) : (
                 <>
-                    {lastRound !== null && totalRaces !== null && (
-                        <p style={{ fontWeight: 600 }}>Round {lastRound} / {totalRaces}</p>
-                    )}
-                    <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
-                        <div style={{ flex: 1 }}>
-                            <h3 style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>Last race driver's results</h3>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Pos</th>
-                                        <th>Driver</th>
-                                        <th>Constructor</th>
-                                        <th>Points</th>
-                                        <th>Interval</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {results.map((result, idx) => (
-                                        <tr key={idx}>
-                                            <td>{result.position}</td>
-                                            <td>{result.Driver.givenName} {result.Driver.familyName}</td>
-                                            <td>{result.Constructor.name}</td>
-                                            <td>{result.points}</td>
-                                            <td>{
-                                                result.position === '1'
-                                                    ? '—'
-                                                    : result.status === 'Lapped' && winnerLaps !== null && result.laps
-                                                    ? (() => {
-                                                        const diff = winnerLaps - parseInt(result.laps || '0', 10)
-                                                        if (!Number.isFinite(diff) || diff <= 0) return result.Time?.time ?? result.status ?? ''
-                                                        return `+${diff} ${Math.abs(diff) === 1 ? 'lap' : 'laps'}`
-                                                    })()
-                                                    : (result.Time?.time ?? result.status ?? '')
-                                            }</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    <div className="summary-grid">
+                        <div className="metric-card">
+                            <p className="metric-label">Last race</p>
+                            <p className="metric-value">{raceName || 'Last F1 Race'}</p>
+                            {lastDate && <p className="metric-sub">{lastDate}</p>}
                         </div>
-
-                        <div style={{ width: '260px' }}>
-                            <h3 style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>Last race constructor's results</h3>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Constructor</th>
-                                        <th>Points</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {constructorResults.map(c => (
-                                        <tr key={c.constructorId}>
-                                            <td>{c.name}</td>
-                                            <td>{c.points}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="metric-card">
+                            <p className="metric-label">Track</p>
+                            <p className="metric-value">{circuitName ?? 'TBD'}</p>
+                            {(locality || country) && <p className="metric-sub">{[locality, country].filter(Boolean).join(', ')}</p>}
+                        </div>
+                        <div className="metric-card">
+                            <p className="metric-label">Round</p>
+                            <p className="metric-value">{lastRound !== null && totalRaces !== null ? `${lastRound} / ${totalRaces}` : '—'}</p>
+                            <p className="metric-sub">Season progress</p>
+                        </div>
+                        <div className="metric-card">
+                            <p className="metric-label">Championship leader</p>
+                            <p className="metric-value">{standings?.[0]?.Driver ? `${standings[0].Driver.givenName} ${standings[0].Driver.familyName}` : 'TBD'}</p>
+                            <p className="metric-sub">{standings?.[0]?.points ? `${standings[0].points} pts` : 'Awaiting results'}</p>
                         </div>
                     </div>
 
-                    <div style={{ marginTop: '1rem', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
-                        <div style={{ flex: 1 }}>
-                            <h3 style={{ marginTop: '0.25rem', marginBottom: '0.5rem' }}>Last season drivers standings{standingsSeason ? ` (${standingsSeason})` : ''}</h3>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Pos</th>
-                                        <th>Driver</th>
-                                        <th>Nationality</th>
-                                        <th>Constructor</th>
-                                        <th>Wins</th>
-                                        <th>Points</th>
-                                        <th>Interval</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {standings.map((s, i) => {
-                                        const pos = s.position
-                                        const drv = s.Driver
-                                        const constr = s.Constructors?.[0]
-                                        const wins = s.wins ?? '0'
-                                        const pts = s.points
-                                        const interval = pos === '1' ? '—' : (seasonWinnerPoints !== null ? `+${(seasonWinnerPoints - parseFloat(pts)).toFixed(0)} pts` : '')
-                                        return (
-                                            <tr key={drv?.driverId ?? `${pos}-${i}`}>
-                                                <td>{pos}</td>
-                                                <td>{drv?.givenName} {drv?.familyName}</td>
-                                                <td>{drv?.nationality}</td>
-                                                <td>{constr?.name}</td>
-                                                <td>{wins}</td>
-                                                <td>{pts}</td>
-                                                <td>{interval}</td>
+                    <div className="card-grid">
+                        <div className="card">
+                            <div className="card-header">
+                                <div>
+                                    <p className="eyebrow">Grand Prix</p>
+                                    <h3 className="card-title">Driver results</h3>
+                                    <p className="muted">Intervals and points for the most recent race</p>
+                                </div>
+                            </div>
+                            <div className="table-wrap" role="region" aria-label="Last race driver results">
+                                <table className="data-table data-table--hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Pos</th>
+                                            <th>Driver</th>
+                                            <th>Constructor</th>
+                                            <th>Points</th>
+                                            <th>Interval</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {results.map((result, idx) => (
+                                            <tr key={idx} className={result.position === '1' ? 'is-winner' : ''}>
+                                                <td>{result.position}</td>
+                                                <td>{result.Driver.givenName} {result.Driver.familyName}</td>
+                                                <td>{result.Constructor.name}</td>
+                                                <td>{result.points}</td>
+                                                <td>{
+                                                    result.position === '1'
+                                                        ? '—'
+                                                        : result.status === 'Lapped' && winnerLaps !== null && result.laps
+                                                        ? (() => {
+                                                            const diff = winnerLaps - parseInt(result.laps || '0', 10)
+                                                            if (!Number.isFinite(diff) || diff <= 0) return result.Time?.time ?? result.status ?? ''
+                                                            return `+${diff} ${Math.abs(diff) === 1 ? 'lap' : 'laps'}`
+                                                        })()
+                                                        : (result.Time?.time ?? result.status ?? '')
+                                                }</td>
                                             </tr>
-                                        )
-                                    })}
-                                </tbody>
-                            </table>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
-                        <div style={{ width: '320px' }}>
-                            <h3 style={{ marginTop: '0.25rem', marginBottom: '0.5rem' }}>Last season constructors standings{constructorStandingsSeason ? ` (${constructorStandingsSeason})` : ''}</h3>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Pos</th>
-                                        <th>Constructor</th>
-                                        <th>Points</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {constructorStandings.map((c, i) => {
-                                        const pos = c.position
-                                        const name = c.Constructor?.name ?? c.constructorId
-                                        const pts = c.points
-                                        return (
-                                            <tr key={c.constructorId ?? `${pos}-${i}`}>
-                                                <td>{pos}</td>
-                                                <td>{name}</td>
-                                                <td>{pts}</td>
+                        <div className="card card-compact">
+                            <div className="card-header">
+                                <div>
+                                    <p className="eyebrow">Grand Prix</p>
+                                    <h3 className="card-title">Constructor results</h3>
+                                    <p className="muted">Team points for the same race</p>
+                                </div>
+                            </div>
+                            <div className="table-wrap" role="region" aria-label="Last race constructor results">
+                                <table className="data-table data-table--hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Constructor</th>
+                                            <th>Points</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {constructorResults.map(c => (
+                                            <tr key={c.constructorId}>
+                                                <td>{c.name}</td>
+                                                <td>{c.points}</td>
                                             </tr>
-                                        )
-                                    })}
-                                </tbody>
-                            </table>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
+                    <div className="card-grid">
+                        <div className="card">
+                            <div className="card-header">
+                                <div>
+                                    <p className="eyebrow">Season</p>
+                                    <h3 className="card-title">Driver standings{standingsSeason ? ` (${standingsSeason})` : ''}</h3>
+                                    <p className="muted">Championship order with intervals to leader</p>
+                                </div>
+                            </div>
+                            <div className="table-wrap" role="region" aria-label="Season driver standings">
+                                <table className="data-table data-table--hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Pos</th>
+                                            <th>Driver</th>
+                                            <th>Nationality</th>
+                                            <th>Constructor</th>
+                                            <th>Wins</th>
+                                            <th>Points</th>
+                                            <th>Interval</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {standings.map((s, i) => {
+                                            const pos = s.position
+                                            const drv = s.Driver
+                                            const constr = s.Constructors?.[0]
+                                            const wins = s.wins ?? '0'
+                                            const pts = s.points
+                                            const interval = pos === '1' ? '—' : (seasonWinnerPoints !== null ? `+${(seasonWinnerPoints - parseFloat(pts)).toFixed(0)} pts` : '')
+                                            return (
+                                                <tr key={drv?.driverId ?? `${pos}-${i}`} className={pos === '1' ? 'is-winner' : ''}>
+                                                    <td>{pos}</td>
+                                                    <td>{drv?.givenName} {drv?.familyName}</td>
+                                                    <td>{drv?.nationality}</td>
+                                                    <td>{constr?.name}</td>
+                                                    <td>{wins}</td>
+                                                    <td>{pts}</td>
+                                                    <td>{interval}</td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div className="card card-compact">
+                            <div className="card-header">
+                                <div>
+                                    <p className="eyebrow">Season</p>
+                                    <h3 className="card-title">Constructor standings{constructorStandingsSeason ? ` (${constructorStandingsSeason})` : ''}</h3>
+                                    <p className="muted">Points for the current title fight</p>
+                                </div>
+                            </div>
+                            <div className="table-wrap" role="region" aria-label="Season constructor standings">
+                                <table className="data-table data-table--hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Pos</th>
+                                            <th>Constructor</th>
+                                            <th>Points</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {constructorStandings.map((c, i) => {
+                                            const pos = c.position
+                                            const name = c.Constructor?.name ?? c.constructorId
+                                            const pts = c.points
+                                            return (
+                                                <tr key={c.constructorId ?? `${pos}-${i}`} className={pos === '1' ? 'is-winner' : ''}>
+                                                    <td>{pos}</td>
+                                                    <td>{name}</td>
+                                                    <td>{pts}</td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </>
             )}
+
+            {/* Add recent searches widget at the end of the page */}
+            <RecentSearches />
         </div>
     )
 }

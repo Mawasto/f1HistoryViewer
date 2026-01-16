@@ -1,4 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import 'flag-icons/css/flag-icons.min.css'
+import { toFlagCode } from '../utils/countryFlag'
+import { useNumberParam, useRecordSearch } from '../utils/useSearchParamsSync'
+import '../styles/MainPage.css'
+import RecentSearches from '../components/RecentSearches'
 
 const MIN_YEAR = 1950
 const CURRENT_YEAR = new Date().getFullYear()
@@ -46,7 +51,7 @@ const fetchJsonWithRetry = async (url: string, retries = 3, backoffMs = 800) => 
 }
 
 const SeasonResults = () => {
-    const [year, setYear] = useState<number>(randYear())
+    const [year, setYear] = useNumberParam('year', randYear())
     const [driverStandings, setDriverStandings] = useState<any[]>([])
     const [constructorStandings, setConstructorStandings] = useState<any[]>([])
     const [seasonRaces, setSeasonRaces] = useState<any[]>([])
@@ -225,6 +230,24 @@ const SeasonResults = () => {
         load()
     }, [year])
 
+    // Record search when year changes and data loads
+    useRecordSearch({
+        type: 'season-results',
+        label: `Season ${year} results`,
+        path: `/season-results?year=${year}`,
+        condition: !loading && !error && seasonRaces.length > 0,
+    })
+
+    // Build a compact descriptor for each round to reuse in both tables
+    const roundColumns = useMemo(() => (
+        seasonRaces.map(r => {
+            const country = r?.Circuit?.Location?.country ?? ''
+            const code = country ? country.trim().slice(0, 3).toUpperCase() : ''
+            const flag = toFlagCode(country)
+            return { round: r.round, code, flag, country }
+        })
+    ), [seasonRaces])
+
     // Build combined driver list (standings order first, then any drivers present in race results but not in standings)
     const driverRows = (() => {
         const standingsMap = Object.fromEntries(driverStandings.map((s: any) => [s.Driver.driverId, s]))
@@ -320,7 +343,7 @@ const SeasonResults = () => {
     })()
 
     return (
-        <div>
+        <div className="dashboard-page">
             <h2>Results from Season</h2>
 
             <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
@@ -329,7 +352,16 @@ const SeasonResults = () => {
                     <select
                         value={year}
                         onChange={(e) => setYear(Number(e.target.value))}
-                        style={{ marginLeft: '0.5rem', width: '120px' }}
+                        style={{
+                            marginLeft: '0.5rem',
+                            width: '140px',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            border: '1px solid #0f172a',
+                            background: '#0b0f1a',
+                            color: '#f8fafc',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+                        }}
                     >
                         {Array.from({ length: CURRENT_YEAR - MIN_YEAR + 1 }, (_, i) => MIN_YEAR + i).map(y => (
                             <option key={y} value={y} disabled={y === DISABLED_YEAR}>{y}{y === DISABLED_YEAR ? ' (unavailable)' : ''}</option>
@@ -347,9 +379,9 @@ const SeasonResults = () => {
                 <>
                     {/* Top summary boxes: driver champion + constructor champion */}
                     <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', alignItems: 'stretch', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                        <div style={{ minWidth: '260px', padding: '12px 16px', borderRadius: '8px', border: '1px solid #000000ff', background: '#fafafa' }}>
-                            <div style={{ fontSize: '0.9rem', color: '#555', marginBottom: '4px' }}>Driver World Champion</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#000' }}>
+                        <div style={{ minWidth: '260px', padding: '12px 16px', borderRadius: '10px', border: '1px solid #1f2937', background: '#0f172a', color: '#e5ecf5', boxShadow: '0 10px 26px rgba(0,0,0,0.35)' }}>
+                            <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '4px' }}>Driver World Champion</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc' }}>
                                 {championSummary.driverChampion ? (
                                     <>
                                         {championSummary.driverChampion.givenName} {championSummary.driverChampion.familyName}
@@ -358,90 +390,97 @@ const SeasonResults = () => {
                                     'N/A'
                                 )}
                             </div>
-                            <div style={{ marginTop: '6px', color: '#333' }}>1st place finishes: <span style={{ fontWeight: 600 }}>{championSummary.driverChampionWins}</span></div>
+                            <div style={{ marginTop: '6px', color: '#cbd5e1' }}>1st place finishes: <span style={{ fontWeight: 700 }}>{championSummary.driverChampionWins}</span></div>
                         </div>
 
-                        <div style={{ minWidth: '260px', padding: '12px 16px', borderRadius: '8px', border: '1px solid #000000ff', background: '#fafafa' }}>
-                            <div style={{ fontSize: '0.9rem', color: '#555', marginBottom: '4px' }}>Constructor Champions</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#000' }}>
+                        <div style={{ minWidth: '260px', padding: '12px 16px', borderRadius: '10px', border: '1px solid #1f2937', background: '#0f172a', color: '#e5ecf5', boxShadow: '0 10px 26px rgba(0,0,0,0.35)' }}>
+                            <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '4px' }}>Constructor Champions</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc' }}>
                                 {championSummary.constructorChampion ? (
                                     championSummary.constructorChampion.name
                                 ) : (
                                     'N/A'
                                 )}
                             </div>
-                            <div style={{ marginTop: '6px', color: '#333' }}>Combined wins: <span style={{ fontWeight: 600 }}>{championSummary.constructorChampionWins}</span></div>
+                            <div style={{ marginTop: '6px', color: '#cbd5e1' }}>Combined wins: <span style={{ fontWeight: 700 }}>{championSummary.constructorChampionWins}</span></div>
                         </div>
                     </div>
 
                     <div style={{ overflowX: 'auto', display: 'block', maxWidth: '100vw' }}>
                         <h3>Driver results by round ({year})</h3>
-                        <table style={{ width: 'max-content', whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr>
-                                    <th>Position</th>
-                                    <th>Driver</th>
-                                    {seasonRaces.map(r => {
-                                        const country = r?.Circuit?.Location?.country ?? ''
-                                        const code = country ? country.trim().slice(0, 3).toUpperCase() : ''
-                                        return (
-                                            <th key={r.round}>{r.round}{code ? ` • ${code}` : ''}</th>
-                                        )
-                                    })}
-                                    <th>Points</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {driverRows.map((row) => (
-                                    <tr key={row.driverId}>
-                                        <td style={{ whiteSpace: 'nowrap' }}>{row.seasonPos}</td>
-                                        <td style={{ textAlign: 'left' }}>{row.driverInfo.givenName} {row.driverInfo.familyName}</td>
-                                        {row.perRace.map((p: string, i: number) => (
-                                            <td key={i} style={{ whiteSpace: 'nowrap' }}>{p}</td>
-                                        ))}
-                                        <td style={{ whiteSpace: 'nowrap' }}>{row.seasonPoints}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                        <div className="table-wrap">
+                            <table className="data-table data-table--hover" style={{ width: 'max-content', whiteSpace: 'nowrap' }}>
+                                 <thead>
+                                     <tr>
+                                         <th>Position</th>
+                                         <th>Driver</th>
+                                         {roundColumns.map(col => (
+                                             <th key={col.round} style={{ verticalAlign: 'bottom', paddingBottom: '6px' }}>
+                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                     <span>{col.round}{col.code ? ` • ${col.code}` : ''}</span>
+                                                     {col.flag && <span className={`fi fi-${col.flag}`} aria-label={`${col.country} flag`} />}
+                                                 </div>
+                                             </th>
+                                         ))}
+                                         <th>Points</th>
+                                     </tr>
+                                 </thead>
+                                 <tbody>
+                                     {driverRows.map((row) => (
+                                         <tr key={row.driverId}>
+                                             <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPos}</td>
+                                             <td style={{ textAlign: 'left' }}>{row.driverInfo.givenName} {row.driverInfo.familyName}</td>
+                                             {row.perRace.map((p: string, i: number) => (
+                                                 <td key={i} style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{p}</td>
+                                             ))}
+                                             <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPoints}</td>
+                                         </tr>
+                                     ))}
+                                 </tbody>
+                            </table>
+                        </div>
+                     </div>
 
-                    {/* constructors results by round */}
                     <div style={{ marginTop: '1rem', overflowX: 'auto', display: 'block', maxWidth: '100vw' }}>
-                        <h3>Constructor results by round ({year})</h3>
-                        <table style={{ width: 'max-content', whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr>
-                                    <th>Pos</th>
-                                    <th>Constructor</th>
-                                    {seasonRaces.map(r => {
-                                        const country = r?.Circuit?.Location?.country ?? ''
-                                        const code = country ? country.trim().slice(0, 3).toUpperCase() : ''
-                                        return (
-                                            <th key={r.round}>{r.round}{code ? ` • ${code}` : ''}</th>
-                                        )
-                                    })}
-                                    <th>Points</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {constructorRows.map((row: any) => (
-                                    <tr key={row.constructorId}>
-                                        <td style={{ whiteSpace: 'nowrap' }}>{row.seasonPos}</td>
-                                        <td style={{ textAlign: 'left' }}>{row.constructorInfo.name ?? row.constructorInfo.constructorId}</td>
-                                        {row.perRace.map((p: string, i: number) => (
-                                            <td key={i} style={{ whiteSpace: 'nowrap' }}>{p}</td>
-                                        ))}
-                                        <td style={{ whiteSpace: 'nowrap' }}>{row.seasonPoints}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </>
-            )}
-        </div>
-    )
-}
+                        <h3>Constructor points by round ({year})</h3>
+                        <div className="table-wrap">
+                            <table className="data-table data-table--hover" style={{ width: 'max-content', whiteSpace: 'nowrap' }}>
+                                 <thead>
+                                     <tr>
+                                         <th>Pos</th>
+                                         <th>Constructor</th>
+                                         {roundColumns.map(col => (
+                                             <th key={col.round} style={{ verticalAlign: 'bottom', paddingBottom: '6px' }}>
+                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                     <span>{col.round}{col.code ? ` • ${col.code}` : ''}</span>
+                                                     {col.flag && <span className={`fi fi-${col.flag}`} aria-label={`${col.country} flag`} />}
+                                                 </div>
+                                             </th>
+                                         ))}
+                                         <th>Points</th>
+                                     </tr>
+                                 </thead>
+                                 <tbody>
+                                     {constructorRows.map((row: any) => (
+                                         <tr key={row.constructorId}>
+                                             <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPos}</td>
+                                             <td style={{ textAlign: 'left' }}>{row.constructorInfo.name ?? row.constructorInfo.constructorId}</td>
+                                             {row.perRace.map((p: string, i: number) => (
+                                                 <td key={i} style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{p}</td>
+                                             ))}
+                                             <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPoints}</td>
+                                         </tr>
+                                     ))}
+                                 </tbody>
+                            </table>
+                        </div>
+                     </div>
+
+                     <RecentSearches />
+                 </>
+             )}
+         </div>
+     )
+ }
 
 export default SeasonResults
