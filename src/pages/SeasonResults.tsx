@@ -406,9 +406,9 @@ const SeasonResults = () => {
                         </div>
                     </div>
 
-                    <div style={{ overflowX: 'auto', display: 'block', maxWidth: '100vw' }}>
+                    <div style={{ overflowX: 'auto', display: 'block', maxWidth: '100vw', textAlign: 'center' }}>
                         <h3>Driver results by round ({year})</h3>
-                        <div className="table-wrap">
+                        <div className="table-wrap" style={{ display: 'inline-block', textAlign: 'left' }}>
                             <table className="data-table data-table--hover" style={{ width: 'max-content', whiteSpace: 'nowrap' }}>
                                  <thead>
                                      <tr>
@@ -441,9 +441,9 @@ const SeasonResults = () => {
                         </div>
                      </div>
 
-                    <div style={{ marginTop: '1rem', overflowX: 'auto', display: 'block', maxWidth: '100vw' }}>
+                    <div style={{ marginTop: '1rem', overflowX: 'auto', display: 'block', maxWidth: '100vw', textAlign: 'center' }}>
                         <h3>Constructor points by round ({year})</h3>
-                        <div className="table-wrap">
+                        <div className="table-wrap" style={{ display: 'inline-block', textAlign: 'left' }}>
                             <table className="data-table data-table--hover" style={{ width: 'max-content', whiteSpace: 'nowrap' }}>
                                  <thead>
                                      <tr>
