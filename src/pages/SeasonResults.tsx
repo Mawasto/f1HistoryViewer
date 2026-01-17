@@ -427,16 +427,16 @@ const SeasonResults = () => {
                                  </thead>
                                  <tbody>
                                      {driverRows.map((row) => (
-                                         <tr key={row.driverId}>
-                                             <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPos}</td>
-                                             <td style={{ textAlign: 'left' }}>{row.driverInfo.givenName} {row.driverInfo.familyName}</td>
-                                             {row.perRace.map((p: string, i: number) => (
-                                                 <td key={i} style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{p}</td>
-                                             ))}
-                                             <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPoints}</td>
-                                         </tr>
-                                     ))}
-                                 </tbody>
+                                         <tr key={row.driverId} className={row.seasonPos === '1' ? 'is-winner' : ''}>
+                                              <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPos}</td>
+                                              <td style={{ textAlign: 'left' }}>{row.driverInfo.givenName} {row.driverInfo.familyName}</td>
+                                              {row.perRace.map((p: string, i: number) => (
+                                                  <td key={i} style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{p}</td>
+                                              ))}
+                                              <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPoints}</td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
                             </table>
                         </div>
                      </div>
@@ -462,14 +462,14 @@ const SeasonResults = () => {
                                  </thead>
                                  <tbody>
                                      {constructorRows.map((row: any) => (
-                                         <tr key={row.constructorId}>
-                                             <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPos}</td>
-                                             <td style={{ textAlign: 'left' }}>{row.constructorInfo.name ?? row.constructorInfo.constructorId}</td>
-                                             {row.perRace.map((p: string, i: number) => (
-                                                 <td key={i} style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{p}</td>
-                                             ))}
-                                             <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPoints}</td>
-                                         </tr>
+                                         <tr key={row.constructorId} className={row.seasonPos === '1' ? 'is-winner' : ''}>
+                                              <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPos}</td>
+                                              <td style={{ textAlign: 'left' }}>{row.constructorInfo.name ?? row.constructorInfo.constructorId}</td>
+                                              {row.perRace.map((p: string, i: number) => (
+                                                  <td key={i} style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{p}</td>
+                                              ))}
+                                              <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{row.seasonPoints}</td>
+                                          </tr>
                                      ))}
                                  </tbody>
                             </table>
